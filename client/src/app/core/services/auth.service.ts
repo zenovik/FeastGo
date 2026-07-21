@@ -68,7 +68,13 @@ export class AuthService {
     return res.user;
   }
 
-  async updateProfile(updates: { name?: string; email?: string | null; gender?: Gender | null; photo?: string | null }) {
+  async updateProfile(updates: {
+    name?: string;
+    email?: string | null;
+    gender?: Gender | null;
+    photo?: string | null;
+    location?: { lat: number; lng: number } | null;
+  }) {
     const res = await firstValueFrom(this.http.patch<{ user: User }>(`${API_URL}/auth/me`, updates));
     this.currentUserSig.set(res.user);
     return res.user;

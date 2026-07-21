@@ -128,6 +128,19 @@ export async function updateProfile(req, res, next) {
       }
       req.user.photo = photo;
     }
+    if (req.body.location !== undefined) {
+      const loc = req.body.location;
+      if (loc === null) {
+        req.user.location = { lat: null, lng: null };
+      } else {
+        const lat = Number(loc?.lat);
+        const lng = Number(loc?.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+          throw new ApiError(400, 'Invalid location coordinates');
+        }
+        req.user.location = { lat, lng };
+      }
+    }
     await req.user.save();
     res.json({ user: req.user.toSafeObject() });
   } catch (err) {

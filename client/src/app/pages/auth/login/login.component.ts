@@ -5,7 +5,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 
-type Step = 'phone' | 'otp' | 'name';
+type Step = 'phone' | 'otp' | 'name' | 'location';
 
 @Component({
   selector: 'app-login',
@@ -22,8 +22,10 @@ type Step = 'phone' | 'otp' | 'name';
             Log in or sign up
           } @else if (step() === 'otp') {
             Verify your number
-          } @else {
+          } @else if (step() === 'name') {
             What's your name?
+          } @else {
+            Share your location
           }
         </h1>
         <p class="mt-1 text-sm text-ink-400">
@@ -31,8 +33,10 @@ type Step = 'phone' | 'otp' | 'name';
             Order in seconds — no password to remember.
           } @else if (step() === 'otp') {
             We've sent a 4-digit code to {{ displayPhone() }}
-          } @else {
+          } @else if (step() === 'name') {
             One last step to set up your FeastGo account.
+          } @else {
+            So we can show restaurants near you and estimate delivery time. Totally optional.
           }
         </p>
       </div>
@@ -141,6 +145,28 @@ type Step = 'phone' | 'otp' | 'name';
             </button>
           </form>
         }
+
+        @if (step() === 'location') {
+          <div>
+            <button
+              type="button"
+              [disabled]="submitting()"
+              (click)="shareLocation()"
+              class="flex w-full items-center justify-center gap-2 rounded-lg bg-ember-500 py-2.5 text-sm font-bold text-white hover:bg-ember-600 disabled:opacity-50"
+            >
+              <app-icon name="map-pin" [size]="16" />
+              {{ submitting() ? 'Getting location…' : 'Share my location' }}
+            </button>
+            <button
+              type="button"
+              [disabled]="submitting()"
+              (click)="skipLocation()"
+              class="mt-2 w-full rounded-lg border border-ink-200 py-2.5 text-sm font-semibold text-ink-500 hover:text-ink-800 disabled:opacity-50"
+            >
+              Skip for now
+            </button>
+          </div>
+        }
       </div>
     </div>
   `,
@@ -244,7 +270,11 @@ export class LoginComponent {
         this.step.set('name');
       } else {
         this.toast.success(`Welcome back, ${result.user.name.split(' ')[0]}!`);
-        this.redirectAfterAuth();
+        if (result.user.location.lat === null) {
+          this.step.set('location');
+        } else {
+          this.redirectAfterAuth();
+        }
       }
     } catch (err: any) {
       this.error.set(err?.error?.message ?? 'Incorrect OTP');
@@ -276,12 +306,45 @@ export class LoginComponent {
     try {
       const user = await this.auth.completeProfile(this.normalizedPhone, this.nameInput.trim(), this.emailInput.trim() || undefined);
       this.toast.success(`Welcome to FeastGo, ${user.name.split(' ')[0]}!`);
-      this.redirectAfterAuth();
+      this.step.set('location');
     } catch (err: any) {
       this.error.set(err?.error?.message ?? 'Could not create your account.');
     } finally {
       this.submitting.set(false);
     }
+  }
+
+  shareLocation() {
+    if (!navigator.geolocation) {
+      this.toast.error('Location is not supported on this browser');
+      this.skipLocation();
+      return;
+    }
+
+    this.submitting.set(true);
+    this.error.set(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          await this.auth.updateProfile({ location: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
+          this.toast.success('Location saved');
+        } catch {
+          this.toast.error('Could not save your location');
+        } finally {
+          this.submitting.set(false);
+          this.redirectAfterAuth();
+        }
+      },
+      () => {
+        this.submitting.set(false);
+        this.toast.error('Location permission denied');
+      },
+      { timeout: 10000 }
+    );
+  }
+
+  skipLocation() {
+    this.redirectAfterAuth();
   }
 
   private redirectAfterAuth() {

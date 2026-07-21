@@ -20,6 +20,7 @@ export interface User {
   phone: string;
   gender: Gender | null;
   photo: string | null;
+  location: { lat: number | null; lng: number | null };
   role: 'user' | 'admin';
   addresses: Address[];
   favoriteRestaurants: string[];
