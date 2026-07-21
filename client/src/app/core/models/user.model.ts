@@ -11,11 +11,15 @@ export interface Address {
   isDefault?: boolean;
 }
 
+export type Gender = 'male' | 'female' | 'other';
+
 export interface User {
   id: string;
   name: string;
   email: string | null;
   phone: string;
+  gender: Gender | null;
+  photo: string | null;
   role: 'user' | 'admin';
   addresses: Address[];
   favoriteRestaurants: string[];

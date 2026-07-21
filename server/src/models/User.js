@@ -20,6 +20,8 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     phone: { type: String, required: true, unique: true, trim: true },
     email: { type: String, trim: true, lowercase: true, default: null },
+    gender: { type: String, enum: ['male', 'female', 'other', null], default: null },
+    photo: { type: String, default: null },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     addresses: [addressSchema],
     favoriteRestaurants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant' }],
@@ -28,8 +30,8 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.methods.toSafeObject = function toSafeObject() {
-  const { _id, name, email, phone, role, addresses, favoriteRestaurants, createdAt } = this;
-  return { id: _id, name, email, phone, role, addresses, favoriteRestaurants, createdAt };
+  const { _id, name, email, phone, gender, photo, role, addresses, favoriteRestaurants, createdAt } = this;
+  return { id: _id, name, email, phone, gender, photo, role, addresses, favoriteRestaurants, createdAt };
 };
 
 export default mongoose.model('User', userSchema);

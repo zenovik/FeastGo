@@ -111,6 +111,23 @@ export async function updateProfile(req, res, next) {
       const email = req.body.email ? String(req.body.email).trim().toLowerCase() : null;
       req.user.email = email;
     }
+    if (req.body.gender !== undefined) {
+      const gender = req.body.gender || null;
+      if (gender !== null && !['male', 'female', 'other'].includes(gender)) {
+        throw new ApiError(400, 'Invalid gender value');
+      }
+      req.user.gender = gender;
+    }
+    if (req.body.photo !== undefined) {
+      const photo = req.body.photo || null;
+      if (photo && !/^data:image\/(png|jpe?g|webp|gif);base64,/.test(photo)) {
+        throw new ApiError(400, 'Invalid photo format');
+      }
+      if (photo && photo.length > 3_000_000) {
+        throw new ApiError(400, 'Photo is too large');
+      }
+      req.user.photo = photo;
+    }
     await req.user.save();
     res.json({ user: req.user.toSafeObject() });
   } catch (err) {

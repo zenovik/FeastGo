@@ -1,7 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Address } from '../../core/models/user.model';
+import { Address, Gender, User } from '../../core/models/user.model';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
@@ -16,9 +16,21 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 
       @if (auth.currentUser(); as u) {
         <div class="card-surface mt-6 flex items-start gap-4 p-5">
-          <span class="flex h-14 w-14 items-center justify-center rounded-full bg-ink-800 text-lg font-bold text-white">
-            {{ initials(u.name) }}
-          </span>
+          <div class="relative shrink-0">
+            @if ((editingProfile() ? editPhoto : u.photo); as photoSrc) {
+              <img [src]="photoSrc" class="h-14 w-14 rounded-full object-cover" alt="Profile photo" />
+            } @else {
+              <span class="flex h-14 w-14 items-center justify-center rounded-full bg-ink-800 text-lg font-bold text-white">
+                {{ initials(u.name) }}
+              </span>
+            }
+            @if (editingProfile()) {
+              <label class="absolute -bottom-1 -right-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-ink-900 text-white">
+                <app-icon name="camera" [size]="12" />
+                <input type="file" accept="image/*" class="hidden" (change)="onPhotoSelected($event)" />
+              </label>
+            }
+          </div>
           <div class="flex-1">
             @if (!editingProfile()) {
               <p class="font-display text-lg font-bold text-ink-900">{{ u.name }}</p>
@@ -26,10 +38,19 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
               @if (u.email) {
                 <p class="text-sm text-ink-400">{{ u.email }}</p>
               }
+              @if (u.gender) {
+                <p class="text-sm capitalize text-ink-400">{{ u.gender }}</p>
+              }
             } @else {
               <form class="space-y-2" (submit)="saveProfile($event)">
                 <input [(ngModel)]="editName" name="editName" placeholder="Name" required class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
                 <input [(ngModel)]="editEmail" name="editEmail" type="email" placeholder="Email" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
+                <select [(ngModel)]="editGender" name="editGender" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400">
+                  <option value="">Gender (optional)</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
                 <div class="flex gap-2">
                   <button type="submit" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white">Save</button>
                   <button type="button" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-500" (click)="cancelEditProfile()">Cancel</button>
@@ -38,7 +59,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
             }
           </div>
           @if (!editingProfile()) {
-            <button type="button" class="text-ink-300 hover:text-ember-600" (click)="startEditProfile(u.name, u.email)">
+            <button type="button" class="text-ink-300 hover:text-ember-600" (click)="startEditProfile(u)">
               <app-icon name="edit" [size]="16" />
             </button>
           }
@@ -97,6 +118,8 @@ export class ProfileComponent {
   editingProfile = signal(false);
   editName = '';
   editEmail = '';
+  editGender: Gender | '' = '';
+  editPhoto: string | null = null;
 
   constructor(
     public auth: AuthService,
@@ -108,9 +131,11 @@ export class ProfileComponent {
     return name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
   }
 
-  startEditProfile(name: string, email: string | null) {
-    this.editName = name;
-    this.editEmail = email ?? '';
+  startEditProfile(u: User) {
+    this.editName = u.name;
+    this.editEmail = u.email ?? '';
+    this.editGender = u.gender ?? '';
+    this.editPhoto = u.photo;
     this.editingProfile.set(true);
   }
 
@@ -118,10 +143,29 @@ export class ProfileComponent {
     this.editingProfile.set(false);
   }
 
+  onPhotoSelected(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (file.size > 2_000_000) {
+      this.toast.error('Photo must be under 2MB');
+      input.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => (this.editPhoto = reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
   async saveProfile(e: Event) {
     e.preventDefault();
     if (!this.editName.trim()) return;
-    await this.auth.updateProfile({ name: this.editName.trim(), email: this.editEmail.trim() || null });
+    await this.auth.updateProfile({
+      name: this.editName.trim(),
+      email: this.editEmail.trim() || null,
+      gender: this.editGender || null,
+      photo: this.editPhoto,
+    });
     this.editingProfile.set(false);
     this.toast.success('Profile updated');
   }

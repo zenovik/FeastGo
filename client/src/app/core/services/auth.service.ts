@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
-import { Address, User } from '../models/user.model';
+import { Address, Gender, User } from '../models/user.model';
 
 const TOKEN_KEY = 'feastgo_token';
 
@@ -68,7 +68,7 @@ export class AuthService {
     return res.user;
   }
 
-  async updateProfile(updates: { name?: string; email?: string | null }) {
+  async updateProfile(updates: { name?: string; email?: string | null; gender?: Gender | null; photo?: string | null }) {
     const res = await firstValueFrom(this.http.patch<{ user: User }>(`${API_URL}/auth/me`, updates));
     this.currentUserSig.set(res.user);
     return res.user;

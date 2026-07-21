@@ -21,7 +21,7 @@ export function createApp() {
     })
   );
   app.use(compression());
-  app.use(express.json());
+  app.use(express.json({ limit: '4mb' }));
   app.use(cookieParser());
   if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
