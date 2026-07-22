@@ -6,6 +6,12 @@ import {
   logout,
   me,
   updateProfile,
+  requestPhoneChangeOtp,
+  verifyPhoneChangeOtp,
+  requestEmailChangeOtp,
+  verifyEmailChangeOtp,
+  toggleFavorite,
+  getFavorites,
   addAddress,
   removeAddress,
 } from '../controllers/authController.js';
@@ -19,6 +25,12 @@ router.post('/complete-profile', completeProfile);
 router.post('/logout', logout);
 router.get('/me', requireAuth, me);
 router.patch('/me', requireAuth, updateProfile);
+router.post('/me/phone/request-otp', requireAuth, requestPhoneChangeOtp);
+router.post('/me/phone/verify-otp', requireAuth, verifyPhoneChangeOtp);
+router.post('/me/email/request-otp', requireAuth, requestEmailChangeOtp);
+router.post('/me/email/verify-otp', requireAuth, verifyEmailChangeOtp);
+router.get('/me/favorites', requireAuth, getFavorites);
+router.post('/me/favorites/:restaurantId', requireAuth, toggleFavorite);
 router.post('/me/addresses', requireAuth, addAddress);
 router.delete('/me/addresses/:addressId', requireAuth, removeAddress);
 

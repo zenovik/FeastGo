@@ -7,7 +7,7 @@ import Review from '../models/Review.js';
 import User from '../models/User.js';
 import Order from '../models/Order.js';
 import { restaurantSeeds, menuFor } from './data.js';
-import { generateCoverSvg, generateLogoSvg, generateDishSvg } from './svg.js';
+import { generateCoverSvg, generateLogoSvg, generateDishSvg, generateGalleryImages } from './svg.js';
 
 function slugify(str) {
   return str
@@ -41,6 +41,7 @@ async function run() {
       colorTo: r.gradient[1],
     });
     const logoImage = generateLogoSvg({ slug: r.slug, initials: r.initials, color: r.color });
+    const images = [coverImage, ...generateGalleryImages(r)];
 
     const restaurant = await Restaurant.create({
       name: r.name,
@@ -56,6 +57,7 @@ async function run() {
       minOrder: toInr(r.minOrder),
       coverImage,
       logoImage,
+      images,
       address: { line1: `${Math.floor(10 + Math.random() * 900)} Main St`, area: r.area, city: r.city },
       location: { lat: 0, lng: 0 },
       isOpen: true,

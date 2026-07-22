@@ -1,14 +1,17 @@
 import { Component, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { Address } from '../../core/models/user.model';
 import { AuthService } from '../../core/services/auth.service';
 import { CartService } from '../../core/services/cart.service';
+import { LocationService } from '../../core/services/location.service';
+import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { SearchBarComponent } from '../../shared/components/search-bar/search-bar.component';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, IconComponent, FormsModule],
+  imports: [RouterLink, RouterLinkActive, IconComponent, SearchBarComponent],
   template: `
     <header class="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur">
       <div class="container-shell flex h-16 items-center gap-4">
@@ -19,29 +22,69 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
           <span class="font-display text-xl font-extrabold tracking-tight text-ink-900">FeastGo</span>
         </a>
 
-        <button
-          type="button"
-          class="hidden shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-ink-600 hover:bg-ink-50 sm:flex"
-        >
-          <app-icon name="map-pin" [size]="16" class="text-ember-500" />
-          <span class="max-w-[140px] truncate">Downtown, Metro City</span>
-          <app-icon name="chevron_down" [size]="14" />
-        </button>
+        <div class="relative hidden shrink-0 sm:block">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-ink-600 hover:bg-ink-50"
+            (click)="locationOpen.set(!locationOpen())"
+          >
+            <app-icon name="map-pin" [size]="16" class="text-ember-500" />
+            <span class="max-w-[140px] truncate">{{ location.label() }}</span>
+            <app-icon name="chevron_down" [size]="14" />
+          </button>
 
-        <form class="mx-auto hidden max-w-md flex-1 md:block" (submit)="onSearch($event)">
-          <label class="relative block">
-            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400">
-              <app-icon name="search" [size]="17" />
-            </span>
-            <input
-              type="search"
-              [(ngModel)]="searchTerm"
-              name="search"
-              placeholder="Search restaurants or dishes"
-              class="w-full rounded-full border border-ink-200 bg-ink-50 py-2.5 pl-10 pr-4 text-sm text-ink-800 outline-none transition focus:border-ember-400 focus:bg-white focus:ring-2 focus:ring-ember-100"
-            />
-          </label>
-        </form>
+          @if (locationOpen()) {
+            <div
+              class="absolute left-0 top-12 z-50 w-72 overflow-hidden rounded-xl border border-ink-100 bg-white py-1.5 shadow-[var(--shadow-pop)]"
+              (click)="locationOpen.set(false)"
+            >
+              <button
+                type="button"
+                class="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-semibold text-ember-600 hover:bg-ember-50"
+                (click)="useCurrentLocation($event)"
+              >
+                <app-icon name="compass" [size]="16" /> Use current location
+              </button>
+
+              @if (auth.isAuthenticated()) {
+                @if (auth.currentUser()?.addresses?.length) {
+                  <div class="border-t border-ink-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink-400">
+                    Saved addresses
+                  </div>
+                  @for (addr of auth.currentUser()!.addresses; track addr._id) {
+                    <button
+                      type="button"
+                      class="flex w-full items-start gap-2.5 px-4 py-2.5 text-left text-sm text-ink-700 hover:bg-ink-50"
+                      (click)="selectAddress(addr)"
+                    >
+                      <app-icon name="map-pin" [size]="15" class="mt-0.5 shrink-0 text-ink-400" />
+                      <span class="min-w-0">
+                        <span class="block font-semibold">
+                          {{ addr.label }}
+                          @if (addr.isDefault) {
+                            <span class="ml-1 rounded bg-basil-100 px-1.5 py-0.5 text-[10px] font-bold text-basil-600">DEFAULT</span>
+                          }
+                        </span>
+                        <span class="block truncate text-xs text-ink-400">{{ addr.line1 }}, {{ addr.area }}, {{ addr.city }}</span>
+                      </span>
+                    </button>
+                  }
+                }
+                <a routerLink="/profile" class="flex items-center gap-2.5 border-t border-ink-100 px-4 py-2.5 text-sm text-ink-600 hover:bg-ink-50">
+                  <app-icon name="edit" [size]="15" /> Manage addresses
+                </a>
+              } @else {
+                <a routerLink="/login" class="flex items-center gap-2.5 border-t border-ink-100 px-4 py-2.5 text-sm text-ink-600 hover:bg-ink-50">
+                  <app-icon name="user" [size]="15" /> Sign in to use saved addresses
+                </a>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="mx-auto min-w-0 max-w-md flex-1">
+          <app-search-bar variant="compact" [showVoice]="true" placeholder="Search restaurants or dishes" />
+        </div>
 
         <nav class="ml-auto flex items-center gap-1 sm:gap-2">
           <a
@@ -108,6 +151,9 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
                   <a routerLink="/orders" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
                     <app-icon name="package" [size]="16" /> Orders
                   </a>
+                  <a routerLink="/favorites" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                    <app-icon name="heart" [size]="16" /> Bookmarks
+                  </a>
                   <button
                     type="button"
                     class="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-ember-600 hover:bg-ember-50"
@@ -132,14 +178,40 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
   `,
 })
 export class HeaderComponent {
-  searchTerm = '';
   menuOpen = signal(false);
+  locationOpen = signal(false);
 
   constructor(
     public auth: AuthService,
     public cart: CartService,
-    private router: Router
+    public location: LocationService,
+    private router: Router,
+    private toast: ToastService
   ) {}
+
+  useCurrentLocation(e: Event) {
+    e.stopPropagation();
+    this.locationOpen.set(false);
+
+    if (!navigator.geolocation) {
+      this.toast.error('Location is not supported on this browser');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        this.location.setLabel('Current location');
+        this.toast.success('Using your current location');
+      },
+      () => {
+        this.toast.error('Location permission denied');
+      },
+      { timeout: 10000 }
+    );
+  }
+
+  selectAddress(addr: Address) {
+    this.location.setLabel(addr.area ? `${addr.area}, ${addr.city}` : addr.city);
+  }
 
   initials(): string {
     const name = this.auth.currentUser()?.name ?? '';
@@ -149,12 +221,6 @@ export class HeaderComponent {
       .slice(0, 2)
       .join('')
       .toUpperCase();
-  }
-
-  onSearch(e: Event) {
-    e.preventDefault();
-    const term = this.searchTerm.trim();
-    this.router.navigate(['/restaurants'], term ? { queryParams: { q: term } } : {});
   }
 
   async logout() {

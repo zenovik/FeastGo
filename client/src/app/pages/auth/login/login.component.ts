@@ -12,7 +12,7 @@ type Step = 'phone' | 'otp' | 'name' | 'location';
   standalone: true,
   imports: [FormsModule, IconComponent],
   template: `
-    <div class="container-shell flex min-h-[70vh] max-w-md flex-col justify-center py-10">
+    <div class="container-shell flex min-h-[50vh] max-w-md flex-col justify-center py-10">
       <div class="mb-6 text-center">
         <span class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-ember-500 text-white">
           <app-icon name="flame" [size]="20" />
@@ -41,9 +41,9 @@ type Step = 'phone' | 'otp' | 'name' | 'location';
         </p>
       </div>
 
-      <div class="card-surface space-y-4 p-5">
+      <div class="card-surface space-y-8 p-5">
         @if (error()) {
-          <p class="rounded-lg bg-ember-50 px-3 py-2 text-sm font-medium text-ember-700">{{ error() }}</p>
+          <p class="rounded-lg bg-ember-50 px-3 py-2 text-sm font-medium text-ember-700=">{{ error() }}</p>
         }
 
         @if (step() === 'phone') {
@@ -270,7 +270,7 @@ export class LoginComponent {
         this.step.set('name');
       } else {
         this.toast.success(`Welcome back, ${result.user.name.split(' ')[0]}!`);
-        if (result.user.location.lat === null) {
+        if (result.user.location?.lat == null) {
           this.step.set('location');
         } else {
           this.redirectAfterAuth();

@@ -83,6 +83,26 @@ export function generateCoverSvg({ slug, title, emoji, colorFrom, colorTo }) {
   return writeSvg('restaurants', `${slug}.svg`, svg);
 }
 
+// A handful of extra cover-style images per restaurant (reversed gradient +
+// a different blob seed per index) so gallery/grid card layouts have real
+// distinct photos to show instead of repeating the same cover image.
+export function generateGalleryImages({ slug, name, emoji, gradient }, count = 4) {
+  const images = [];
+  for (let i = 2; i <= count + 1; i++) {
+    const reversed = i % 2 === 0;
+    images.push(
+      generateCoverSvg({
+        slug: `${slug}-${i}`,
+        title: name,
+        emoji,
+        colorFrom: reversed ? gradient[1] : gradient[0],
+        colorTo: reversed ? gradient[0] : gradient[1],
+      })
+    );
+  }
+  return images;
+}
+
 export function generateLogoSvg({ slug, initials, color }) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">
   <rect width="160" height="160" rx="32" fill="${color}" />

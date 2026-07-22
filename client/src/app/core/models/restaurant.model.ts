@@ -13,6 +13,7 @@ export interface Restaurant {
   minOrder: number;
   coverImage: string;
   logoImage: string;
+  images: string[];
   address: { line1: string; area: string; city: string };
   isOpen: boolean;
   isFeatured: boolean;

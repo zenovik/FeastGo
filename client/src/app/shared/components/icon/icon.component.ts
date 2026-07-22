@@ -41,6 +41,10 @@ const ICONS: Record<string, string> = {
   percent: '<path d="M19 5 5 19M6.5 8a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM17.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/>',
   package: '<path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
   camera: '<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="14" r="3.5"/>',
+  mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/>',
+  sliders: '<path d="M4 6h10M17 6h3M4 12h3M10 12h10M4 18h13M20 18h0"/><circle cx="14" cy="6" r="2"/><circle cx="7" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="m16 8-2 6-6 2 2-6 6-2Z"/>',
+  bolt: '<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/>',
 };
 
 @Component({
@@ -50,7 +54,7 @@ const ICONS: Record<string, string> = {
     [attr.width]="size"
     [attr.height]="size"
     viewBox="0 0 24 24"
-    [attr.fill]="filled() ? 'currentColor' : 'none'"
+    [attr.fill]="isFilled() ? 'currentColor' : 'none'"
     stroke="currentColor"
     [attr.stroke-width]="strokeWidth"
     stroke-linecap="round"
@@ -63,11 +67,12 @@ export class IconComponent {
   @Input() name = 'info';
   @Input() size = 20;
   @Input() strokeWidth = 2;
+  @Input() filled: boolean | null = null;
 
   constructor(private sanitizer: DomSanitizer) {}
 
-  filled(): boolean {
-    return ['star', 'flame'].includes(this.name);
+  isFilled(): boolean {
+    return this.filled ?? ['star', 'flame'].includes(this.name);
   }
 
   markup(): SafeHtml {

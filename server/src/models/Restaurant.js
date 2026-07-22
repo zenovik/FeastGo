@@ -15,6 +15,7 @@ const restaurantSchema = new mongoose.Schema(
     minOrder: { type: Number, default: 8 },
     coverImage: { type: String, required: true },
     logoImage: { type: String, default: '' },
+    images: { type: [String], default: [] },
     address: {
       line1: { type: String, default: '' },
       area: { type: String, default: '' },

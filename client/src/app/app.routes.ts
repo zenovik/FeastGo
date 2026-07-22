@@ -9,9 +9,8 @@ export const routes: Routes = [
   },
   {
     path: 'restaurants',
-    loadComponent: () =>
-      import('./pages/restaurant-list/restaurant-list.component').then((m) => m.RestaurantListComponent),
-    title: 'Restaurants — FeastGo',
+    loadComponent: () => import('./pages/food-list/food-list.component').then((m) => m.FoodListComponent),
+    title: 'Food — FeastGo',
   },
   {
     path: 'restaurants/:slug',
@@ -42,6 +41,11 @@ export const routes: Routes = [
       import('./pages/order-tracking/order-tracking.component').then((m) => m.OrderTrackingComponent),
     title: 'Track order — FeastGo',
     canActivate: [authGuard],
+  },
+  {
+    path: 'favorites',
+    loadComponent: () => import('./pages/favorites/favorites.component').then((m) => m.FavoritesComponent),
+    title: 'Your bookmarks — FeastGo',
   },
   {
     path: 'profile',

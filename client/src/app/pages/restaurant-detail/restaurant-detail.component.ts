@@ -1,6 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MenuCategory } from '../../core/models/menu-item.model';
 import { Restaurant } from '../../core/models/restaurant.model';
 import { AuthService } from '../../core/services/auth.service';
@@ -25,6 +25,13 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
         <a routerLink="/restaurants" class="absolute left-4 top-4 rounded-full bg-white/90 p-2 text-ink-800 hover:bg-white">
           <app-icon name="arrow-left" [size]="18" />
         </a>
+        <button
+          type="button"
+          class="absolute right-4 top-4 rounded-full bg-white/90 p-2 text-ink-800 hover:bg-white"
+          (click)="onToggleFavorite(r)"
+        >
+          <app-icon name="heart" [size]="18" [filled]="isFavorite(r)" [class.text-ember-600]="isFavorite(r)" />
+        </button>
         <div class="container-shell absolute bottom-4 left-0 right-0">
           <h1 class="font-display text-2xl font-extrabold text-white sm:text-3xl">{{ r.name }}</h1>
           <p class="mt-1 text-sm text-ink-200">{{ r.cuisines.join(', ') }}</p>
@@ -151,10 +158,30 @@ export class RestaurantDetailComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private restaurantService: RestaurantService,
     public auth: AuthService,
     private toast: ToastService
   ) {}
+
+  isFavorite(r: Restaurant): boolean {
+    return this.auth.isFavorite(r._id);
+  }
+
+  async onToggleFavorite(r: Restaurant) {
+    if (!this.auth.isAuthenticated()) {
+      this.router.navigate(['/login'], { queryParams: { redirect: this.router.url } });
+      return;
+    }
+
+    const wasFavorite = this.isFavorite(r);
+    try {
+      await this.auth.toggleFavorite(r._id);
+      this.toast.success(wasFavorite ? 'Removed from bookmarks' : 'Added to bookmarks');
+    } catch {
+      this.toast.error('Could not update bookmark');
+    }
+  }
 
   async ngOnInit() {
     const slug = this.route.snapshot.paramMap.get('slug')!;

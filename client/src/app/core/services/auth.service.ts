@@ -3,6 +3,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
 import { Address, Gender, User } from '../models/user.model';
+import { Restaurant } from '../models/restaurant.model';
 
 const TOKEN_KEY = 'feastgo_token';
 
@@ -70,7 +71,6 @@ export class AuthService {
 
   async updateProfile(updates: {
     name?: string;
-    email?: string | null;
     gender?: Gender | null;
     photo?: string | null;
     location?: { lat: number; lng: number } | null;
@@ -78,6 +78,47 @@ export class AuthService {
     const res = await firstValueFrom(this.http.patch<{ user: User }>(`${API_URL}/auth/me`, updates));
     this.currentUserSig.set(res.user);
     return res.user;
+  }
+
+  requestPhoneChangeOtp(phone: string) {
+    return firstValueFrom(this.http.post<OtpRequestResponse>(`${API_URL}/auth/me/phone/request-otp`, { phone }));
+  }
+
+  async verifyPhoneChangeOtp(phone: string, code: string) {
+    const res = await firstValueFrom(
+      this.http.post<{ user: User }>(`${API_URL}/auth/me/phone/verify-otp`, { phone, code })
+    );
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  requestEmailChangeOtp(email: string) {
+    return firstValueFrom(this.http.post<OtpRequestResponse>(`${API_URL}/auth/me/email/request-otp`, { email }));
+  }
+
+  async verifyEmailChangeOtp(email: string, code: string) {
+    const res = await firstValueFrom(
+      this.http.post<{ user: User }>(`${API_URL}/auth/me/email/verify-otp`, { email, code })
+    );
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  async toggleFavorite(restaurantId: string) {
+    const res = await firstValueFrom(
+      this.http.post<{ user: User }>(`${API_URL}/auth/me/favorites/${restaurantId}`, {})
+    );
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  isFavorite(restaurantId: string): boolean {
+    return this.currentUserSig()?.favoriteRestaurants.includes(restaurantId) ?? false;
+  }
+
+  async getFavorites(): Promise<Restaurant[]> {
+    const res = await firstValueFrom(this.http.get<{ restaurants: Restaurant[] }>(`${API_URL}/auth/me/favorites`));
+    return res.restaurants;
   }
 
   async logout() {

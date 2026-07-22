@@ -34,17 +34,105 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
           <div class="flex-1">
             @if (!editingProfile()) {
               <p class="font-display text-lg font-bold text-ink-900">{{ u.name }}</p>
-              <p class="text-sm text-ink-400">{{ u.phone }}</p>
+              <p class="mt-0.5 text-sm text-ink-400">{{ u.phone }}</p>
               @if (u.email) {
-                <p class="text-sm text-ink-400">{{ u.email }}</p>
+                <p class="mt-0.5 text-sm text-ink-400">{{ u.email }}</p>
               }
               @if (u.gender) {
-                <p class="text-sm capitalize text-ink-400">{{ u.gender }}</p>
+                <p class="mt-0.5 text-sm capitalize text-ink-400">{{ u.gender }}</p>
               }
             } @else {
               <form class="space-y-2" (submit)="saveProfile($event)">
                 <input [(ngModel)]="editName" name="editName" placeholder="Name" required class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-                <input [(ngModel)]="editEmail" name="editEmail" type="email" placeholder="Email" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
+
+                <div class="flex items-center gap-2">
+                  <input
+                    type="tel"
+                    [(ngModel)]="editPhone"
+                    name="editPhone"
+                    placeholder="Phone number"
+                    class="w-full flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400"
+                  />
+                  @if (editPhone.trim() === u.phone) {
+                    <span class="flex shrink-0 items-center gap-1 rounded-lg bg-basil-50 px-3 py-2 text-xs font-bold text-basil-600">
+                      <app-icon name="shield-check" [size]="14" /> Verified
+                    </span>
+                  } @else {
+                    <button
+                      type="button"
+                      class="shrink-0 rounded-lg border border-ember-500 px-3 py-2 text-xs font-bold text-ember-600 hover:bg-ember-50"
+                      (click)="verifyPhone()"
+                    >
+                      Verify
+                    </button>
+                  }
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <input
+                    type="email"
+                    [(ngModel)]="editEmail"
+                    name="editEmail"
+                    placeholder="Email address"
+                    class="w-full flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400"
+                  />
+                  @if (editEmail.trim() && editEmail.trim().toLowerCase() === (u.email ?? '')) {
+                    <span class="flex shrink-0 items-center gap-1 rounded-lg bg-basil-50 px-3 py-2 text-xs font-bold text-basil-600">
+                      <app-icon name="shield-check" [size]="14" /> Verified
+                    </span>
+                  } @else if (editEmail.trim()) {
+                    <button
+                      type="button"
+                      class="shrink-0 rounded-lg border border-ember-500 px-3 py-2 text-xs font-bold text-ember-600 hover:bg-ember-50"
+                      (click)="verifyEmail()"
+                    >
+                      Verify
+                    </button>
+                  }
+                </div>
+
+                @if (changingField(); as field) {
+                  <div class="space-y-2 rounded-lg border border-ink-200 bg-ink-50 p-3">
+                    <p class="text-xs font-semibold text-ink-600">
+                      Enter the code sent to your {{ field === 'phone' ? 'new phone number' : 'new email' }}
+                    </p>
+                    @if (changeError()) {
+                      <p class="rounded-lg bg-ember-50 px-3 py-2 text-xs font-medium text-ember-700">{{ changeError() }}</p>
+                    }
+                    @if (changeDevOtp()) {
+                      <p class="rounded-lg bg-gold-400/15 px-3 py-2 text-xs font-medium text-gold-700">
+                        Demo mode — your code is <strong>{{ changeDevOtp() }}</strong>
+                      </p>
+                    }
+                    <div class="flex gap-2">
+                      <input
+                        type="text"
+                        inputmode="numeric"
+                        maxlength="4"
+                        [(ngModel)]="changeCode"
+                        name="changeCode"
+                        placeholder="4-digit code"
+                        class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400"
+                      />
+                      <button
+                        type="button"
+                        [disabled]="changeSubmitting()"
+                        class="shrink-0 rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                        (click)="submitChangeOtp()"
+                      >
+                        {{ changeSubmitting() ? 'Verifying…' : 'Verify' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="shrink-0 rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold text-ink-500"
+                        (click)="cancelChange()"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                }
+
                 <select [(ngModel)]="editGender" name="editGender" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400">
                   <option value="">Gender (optional)</option>
                   <option value="male">Male</option>
@@ -117,9 +205,17 @@ export class ProfileComponent {
 
   editingProfile = signal(false);
   editName = '';
+  editPhone = '';
   editEmail = '';
   editGender: Gender | '' = '';
   editPhoto: string | null = null;
+
+  changingField = signal<'phone' | 'email' | null>(null);
+  changeCode = '';
+  changeDevOtp = signal<string | null>(null);
+  changeSubmitting = signal(false);
+  changeError = signal<string | null>(null);
+  private pendingChangeValue = '';
 
   constructor(
     public auth: AuthService,
@@ -133,6 +229,7 @@ export class ProfileComponent {
 
   startEditProfile(u: User) {
     this.editName = u.name;
+    this.editPhone = u.phone;
     this.editEmail = u.email ?? '';
     this.editGender = u.gender ?? '';
     this.editPhoto = u.photo;
@@ -141,6 +238,70 @@ export class ProfileComponent {
 
   cancelEditProfile() {
     this.editingProfile.set(false);
+  }
+
+  cancelChange() {
+    this.changingField.set(null);
+  }
+
+  async verifyPhone() {
+    const value = this.editPhone.trim().replace(/[\s-]/g, '');
+    if (!/^\+?\d{7,15}$/.test(value)) {
+      this.toast.error('Enter a valid phone number');
+      return;
+    }
+    await this.requestVerification('phone', value);
+  }
+
+  async verifyEmail() {
+    const value = this.editEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      this.toast.error('Enter a valid email address');
+      return;
+    }
+    await this.requestVerification('email', value);
+  }
+
+  private async requestVerification(field: 'phone' | 'email', value: string) {
+    this.changingField.set(field);
+    this.pendingChangeValue = value;
+    this.changeCode = '';
+    this.changeError.set(null);
+    this.changeDevOtp.set(null);
+    this.changeSubmitting.set(true);
+    try {
+      const res =
+        field === 'phone' ? await this.auth.requestPhoneChangeOtp(value) : await this.auth.requestEmailChangeOtp(value);
+      this.changeDevOtp.set(res.devOtp ?? null);
+    } catch (err: any) {
+      this.changeError.set(err?.error?.message ?? 'Could not send code. Try again.');
+      this.changingField.set(null);
+    } finally {
+      this.changeSubmitting.set(false);
+    }
+  }
+
+  async submitChangeOtp() {
+    const field = this.changingField();
+    if (!field || this.changeCode.trim().length < 4) return;
+
+    this.changeSubmitting.set(true);
+    this.changeError.set(null);
+    try {
+      if (field === 'phone') {
+        const updated = await this.auth.verifyPhoneChangeOtp(this.pendingChangeValue, this.changeCode.trim());
+        this.editPhone = updated.phone;
+      } else {
+        const updated = await this.auth.verifyEmailChangeOtp(this.pendingChangeValue, this.changeCode.trim());
+        this.editEmail = updated.email ?? '';
+      }
+      this.toast.success(field === 'phone' ? 'Phone number verified' : 'Email verified');
+      this.changingField.set(null);
+    } catch (err: any) {
+      this.changeError.set(err?.error?.message ?? 'Incorrect code');
+    } finally {
+      this.changeSubmitting.set(false);
+    }
   }
 
   onPhotoSelected(e: Event) {
@@ -162,7 +323,6 @@ export class ProfileComponent {
     if (!this.editName.trim()) return;
     await this.auth.updateProfile({
       name: this.editName.trim(),
-      email: this.editEmail.trim() || null,
       gender: this.editGender || null,
       photo: this.editPhoto,
     });

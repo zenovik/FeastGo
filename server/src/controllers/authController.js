@@ -1,4 +1,6 @@
+import mongoose from 'mongoose';
 import User from '../models/User.js';
+import Restaurant from '../models/Restaurant.js';
 import { signToken } from '../utils/token.js';
 import { ApiError } from '../utils/ApiError.js';
 import { issueOtp, checkOtp, isPhoneVerified, clearOtp } from '../utils/otpStore.js';
@@ -16,6 +18,10 @@ function normalizePhone(phone) {
 
 function isValidPhone(phone) {
   return /^\+?\d{7,15}$/.test(phone);
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function respondWithToken(res, user, statusCode = 200) {
@@ -107,10 +113,6 @@ export async function updateProfile(req, res, next) {
       if (!name) throw new ApiError(400, 'Name is required');
       req.user.name = name;
     }
-    if (req.body.email !== undefined) {
-      const email = req.body.email ? String(req.body.email).trim().toLowerCase() : null;
-      req.user.email = email;
-    }
     if (req.body.gender !== undefined) {
       const gender = req.body.gender || null;
       if (gender !== null && !['male', 'female', 'other'].includes(gender)) {
@@ -143,6 +145,114 @@ export async function updateProfile(req, res, next) {
     }
     await req.user.save();
     res.json({ user: req.user.toSafeObject() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+function otpErrorMessage(reason) {
+  const messages = {
+    not_found: 'Request a new code first',
+    expired: 'This code has expired — request a new one',
+    too_many_attempts: 'Too many incorrect attempts — request a new code',
+    mismatch: 'Incorrect code',
+  };
+  return messages[reason] ?? 'Invalid code';
+}
+
+export async function requestPhoneChangeOtp(req, res, next) {
+  try {
+    const phone = normalizePhone(req.body.phone);
+    if (!isValidPhone(phone)) throw new ApiError(400, 'Enter a valid phone number');
+    if (phone === req.user.phone) throw new ApiError(400, 'That is already your phone number');
+
+    const taken = await User.findOne({ phone, _id: { $ne: req.user._id } });
+    if (taken) throw new ApiError(409, 'This phone number is already in use');
+
+    const code = issueOtp(`chphone:${phone}`);
+    res.json({ message: `OTP sent to ${phone}`, devOtp: code });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function verifyPhoneChangeOtp(req, res, next) {
+  try {
+    const phone = normalizePhone(req.body.phone);
+    const code = String(req.body.code ?? '');
+    if (!phone || !code) throw new ApiError(400, 'Phone and code are required');
+
+    const result = checkOtp(`chphone:${phone}`, code);
+    if (!result.ok) throw new ApiError(400, otpErrorMessage(result.reason));
+
+    const taken = await User.findOne({ phone, _id: { $ne: req.user._id } });
+    if (taken) throw new ApiError(409, 'This phone number is already in use');
+
+    req.user.phone = phone;
+    await req.user.save();
+    clearOtp(`chphone:${phone}`);
+    res.json({ user: req.user.toSafeObject() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function requestEmailChangeOtp(req, res, next) {
+  try {
+    const email = String(req.body.email ?? '').trim().toLowerCase();
+    if (!isValidEmail(email)) throw new ApiError(400, 'Enter a valid email address');
+    if (email === req.user.email) throw new ApiError(400, 'That is already your email address');
+
+    const code = issueOtp(`chemail:${email}`);
+    res.json({ message: `OTP sent to ${email}`, devOtp: code });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function verifyEmailChangeOtp(req, res, next) {
+  try {
+    const email = String(req.body.email ?? '').trim().toLowerCase();
+    const code = String(req.body.code ?? '');
+    if (!email || !code) throw new ApiError(400, 'Email and code are required');
+
+    const result = checkOtp(`chemail:${email}`, code);
+    if (!result.ok) throw new ApiError(400, otpErrorMessage(result.reason));
+
+    req.user.email = email;
+    await req.user.save();
+    clearOtp(`chemail:${email}`);
+    res.json({ user: req.user.toSafeObject() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function toggleFavorite(req, res, next) {
+  try {
+    const { restaurantId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(restaurantId)) throw new ApiError(400, 'Invalid restaurant id');
+
+    const restaurant = await Restaurant.findById(restaurantId).select('_id');
+    if (!restaurant) throw new ApiError(404, 'Restaurant not found');
+
+    const idx = req.user.favoriteRestaurants.findIndex((id) => id.toString() === restaurantId);
+    if (idx >= 0) {
+      req.user.favoriteRestaurants.splice(idx, 1);
+    } else {
+      req.user.favoriteRestaurants.push(restaurantId);
+    }
+    await req.user.save();
+    res.json({ user: req.user.toSafeObject() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getFavorites(req, res, next) {
+  try {
+    await req.user.populate('favoriteRestaurants');
+    res.json({ restaurants: req.user.favoriteRestaurants });
   } catch (err) {
     next(err);
   }

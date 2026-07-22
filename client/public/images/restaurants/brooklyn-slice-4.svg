@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6a040f" />
+      <stop offset="100%" stop-color="#f28482" />
+    </linearGradient>
+    <radialGradient id="gA"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.35" /><stop offset="100%" stop-color="#ffffff" stop-opacity="0" /></radialGradient>
+    <radialGradient id="gB"><stop offset="0%" stop-color="#000000" stop-opacity="0.12" /><stop offset="100%" stop-color="#000000" stop-opacity="0" /></radialGradient>
+    
+    <filter id="softBlur" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="14" />
+    </filter>
+    <radialGradient id="highlight" cx="38%" cy="32%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55" />
+      <stop offset="55%" stop-color="#ffffff" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="800" height="480" fill="url(#bg)" />
+  <circle cx="475" cy="299" r="379" fill="url(#gA)" opacity="0.55" /><circle cx="589" cy="105" r="343" fill="url(#gB)" opacity="0.55" /><circle cx="482" cy="350" r="369" fill="url(#gA)" opacity="0.55" /><circle cx="672" cy="13" r="347" fill="url(#gB)" opacity="0.55" />
+  <circle cx="400" cy="230" r="220" fill="url(#highlight)" />
+  <ellipse cx="400" cy="390" rx="190" ry="34" fill="#000000" opacity="0.28" filter="url(#softBlur)" />
+  <text x="50%" y="52%" font-size="260" text-anchor="middle" dominant-baseline="middle" font-family="Segoe UI Emoji, Apple Color Emoji, sans-serif">🍕</text>
+</svg>
