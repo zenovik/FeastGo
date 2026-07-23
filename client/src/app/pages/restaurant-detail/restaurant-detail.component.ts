@@ -1,6 +1,7 @@
+import { Location } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MenuCategory } from '../../core/models/menu-item.model';
 import { Restaurant } from '../../core/models/restaurant.model';
 import { AuthService } from '../../core/services/auth.service';
@@ -14,7 +15,7 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
 @Component({
   selector: 'app-restaurant-detail',
   standalone: true,
-  imports: [RouterLink, FormsModule, IconComponent, MenuItemCardComponent, RatingBadgeComponent, InrPipe],
+  imports: [FormsModule, IconComponent, MenuItemCardComponent, RatingBadgeComponent, InrPipe],
   template: `
     @if (loading()) {
       <div class="h-64 animate-pulse bg-ink-100"></div>
@@ -22,9 +23,14 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
       <div class="relative h-56 w-full overflow-hidden bg-ink-800 sm:h-72">
         <img [src]="r.coverImage" [alt]="r.name" class="h-full w-full object-cover opacity-80" />
         <div class="absolute inset-0 bg-gradient-to-t from-ink-900/90 via-ink-900/20 to-transparent"></div>
-        <a routerLink="/restaurants" class="absolute left-4 top-4 rounded-full bg-white/90 p-2 text-ink-800 hover:bg-white">
+        <button
+          type="button"
+          class="absolute left-4 top-4 rounded-full bg-white/90 p-2 text-ink-800 hover:bg-white"
+          (click)="goBack()"
+          aria-label="Back"
+        >
           <app-icon name="arrow-left" [size]="18" />
-        </a>
+        </button>
         <button
           type="button"
           class="absolute right-4 top-4 rounded-full bg-white/90 p-2 text-ink-800 hover:bg-white"
@@ -159,10 +165,22 @@ export class RestaurantDetailComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
+    private location: Location,
     private restaurantService: RestaurantService,
     public auth: AuthService,
     private toast: ToastService
   ) {}
+
+  goBack() {
+    // history.state.navigationId is 1 only on the very first navigation of this
+    // app session (e.g. a direct link) — nothing in-app to go back to then.
+    const navigationId = (window.history.state as { navigationId?: number } | null)?.navigationId;
+    if (navigationId && navigationId > 1) {
+      this.location.back();
+    } else {
+      this.router.navigateByUrl('/restaurants');
+    }
+  }
 
   isFavorite(r: Restaurant): boolean {
     return this.auth.isFavorite(r._id);

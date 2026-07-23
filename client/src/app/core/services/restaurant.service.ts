@@ -58,4 +58,10 @@ export class RestaurantService {
   cuisines() {
     return firstValueFrom(this.http.get<{ cuisines: string[] }>(`${API_URL}/restaurants/cuisines`));
   }
+
+  validateCoupon(slug: string, code: string, subtotal: number) {
+    return firstValueFrom(
+      this.http.post<{ code: string; discount: number }>(`${API_URL}/restaurants/${slug}/coupons/validate`, { code, subtotal })
+    );
+  }
 }

@@ -1,13 +1,7 @@
 import User from '../models/User.js';
 import { verifyToken } from '../utils/token.js';
 import { ApiError } from '../utils/ApiError.js';
-
-function extractToken(req) {
-  const header = req.headers.authorization;
-  if (header && header.startsWith('Bearer ')) return header.slice(7);
-  if (req.cookies?.feastgo_token) return req.cookies.feastgo_token;
-  return null;
-}
+import { extractToken } from '../utils/extractToken.js';
 
 export async function requireAuth(req, res, next) {
   try {
@@ -16,10 +10,14 @@ export async function requireAuth(req, res, next) {
     const payload = verifyToken(token);
     const user = await User.findById(payload.sub);
     if (!user) throw new ApiError(401, 'User no longer exists');
+    if (user.isBlocked) throw new ApiError(403, 'Your account has been blocked. Contact support for help.');
     req.user = user;
+    req.role = 'customer';
     next();
-  } catch {
-    next(new ApiError(401, 'Not authenticated'));
+  } catch (err) {
+    // A blocked account is a real, safe-to-disclose state — surface it as-is.
+    // Anything else (bad/expired token, deleted user) stays a generic 401.
+    next(err instanceof ApiError && err.statusCode === 403 ? err : new ApiError(401, 'Not authenticated'));
   }
 }
 

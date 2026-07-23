@@ -9,7 +9,9 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
 const STATUS_LABEL: Record<OrderStatus, string> = {
   placed: 'Placed',
   confirmed: 'Confirmed',
+  rejected: 'Rejected',
   preparing: 'Preparing',
+  ready_for_pickup: 'Ready for pickup',
   out_for_delivery: 'Out for delivery',
   delivered: 'Delivered',
   cancelled: 'Cancelled',

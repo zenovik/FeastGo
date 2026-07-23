@@ -1,7 +1,8 @@
 import { Component, OnInit, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FoodItem } from '../../core/models/food-item.model';
 import { FoodPriceRange, FoodQuery, FoodService, FoodSort } from '../../core/services/food.service';
+import { ScrollRestorationService } from '../../core/services/scroll-restoration.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { FoodCardComponent } from '../../shared/components/food-card/food-card.component';
 
@@ -45,9 +46,16 @@ const PRICE_RANGES: { value: FoodPriceRange | ''; label: string }[] = [
   imports: [IconComponent, FoodCardComponent],
   template: `
     <div class="container-shell py-8">
-      <h1 class="font-display text-2xl font-bold text-ink-900">
+      <h1 class="flex flex-wrap items-center gap-2 font-display text-2xl font-bold text-ink-900">
         @if (query()) {
-          Results for "{{ query() }}"
+          <span>Results for "{{ query() }}"</span>
+          <button
+            type="button"
+            class="flex items-center gap-1 rounded-full border border-ink-200 px-2.5 py-1 text-xs font-semibold text-ink-500 hover:border-ember-400 hover:text-ember-600"
+            (click)="clearSearch()"
+          >
+            <app-icon name="x" [size]="13" /> Clear search
+          </button>
         } @else {
           Food Feed
         }
@@ -112,6 +120,19 @@ const PRICE_RANGES: { value: FoodPriceRange | ''; label: string }[] = [
             <app-food-card [item]="item" />
           }
         </div>
+
+        @if (items().length < total()) {
+          <div class="mt-6 flex justify-center">
+            <button
+              type="button"
+              [disabled]="loadingMore()"
+              class="rounded-lg border border-ink-200 px-5 py-2.5 text-sm font-semibold text-ink-700 hover:border-ember-400 disabled:opacity-50"
+              (click)="loadMore()"
+            >
+              {{ loadingMore() ? 'Loading…' : 'Load more' }}
+            </button>
+          </div>
+        }
       }
     </div>
   `,
@@ -127,18 +148,36 @@ export class FoodListComponent implements OnInit {
   activeFilters = signal<Set<FilterChip['key']>>(new Set());
 
   loading = signal(true);
+  loadingMore = signal(false);
   items = signal<FoodItem[]>([]);
   total = signal(0);
+  page = signal(1);
+
+  private initialLoad = true;
 
   constructor(
     private route: ActivatedRoute,
-    private foodService: FoodService
+    private router: Router,
+    private foodService: FoodService,
+    private scrollRestoration: ScrollRestorationService
   ) {}
 
   ngOnInit() {
-    this.route.queryParamMap.subscribe((params) => {
+    this.route.queryParamMap.subscribe(async (params) => {
       this.query.set(params.get('q'));
-      this.fetch();
+      await this.fetch();
+      if (this.initialLoad) {
+        this.initialLoad = false;
+        this.scrollRestoration.restore();
+      }
+    });
+  }
+
+  clearSearch() {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { q: null },
+      queryParamsHandling: 'merge',
     });
   }
 
@@ -169,29 +208,46 @@ export class FoodListComponent implements OnInit {
     this.fetch();
   }
 
+  private buildQuery(): FoodQuery {
+    const filters = this.activeFilters();
+    return {
+      q: this.query() ?? undefined,
+      sort: this.sort(),
+      priceRange: this.priceRange() || undefined,
+      veg: filters.has('veg'),
+      nonVeg: filters.has('nonVeg'),
+      bestseller: filters.has('bestseller'),
+      spicy: filters.has('spicy'),
+      healthy: filters.has('healthy'),
+      fastDelivery: filters.has('fastDelivery'),
+      under199: filters.has('under199'),
+      offers: filters.has('offers'),
+      topRated: filters.has('topRated'),
+    };
+  }
+
   private async fetch() {
     this.loading.set(true);
     try {
-      const filters = this.activeFilters();
-      const query: FoodQuery = {
-        q: this.query() ?? undefined,
-        sort: this.sort(),
-        priceRange: this.priceRange() || undefined,
-        veg: filters.has('veg'),
-        nonVeg: filters.has('nonVeg'),
-        bestseller: filters.has('bestseller'),
-        spicy: filters.has('spicy'),
-        healthy: filters.has('healthy'),
-        fastDelivery: filters.has('fastDelivery'),
-        under199: filters.has('under199'),
-        offers: filters.has('offers'),
-        topRated: filters.has('topRated'),
-      };
-      const res = await this.foodService.list(query);
+      const res = await this.foodService.list(this.buildQuery());
       this.items.set(res.items);
       this.total.set(res.total);
+      this.page.set(1);
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  async loadMore() {
+    if (this.loadingMore() || this.items().length >= this.total()) return;
+    this.loadingMore.set(true);
+    try {
+      const nextPage = this.page() + 1;
+      const res = await this.foodService.list({ ...this.buildQuery(), page: nextPage });
+      this.items.update((cur) => [...cur, ...res.items]);
+      this.page.set(nextPage);
+    } finally {
+      this.loadingMore.set(false);
     }
   }
 }

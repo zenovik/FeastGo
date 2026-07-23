@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
 import { Address, Gender, User } from '../models/user.model';
 import { Restaurant } from '../models/restaurant.model';
+import { AppNotification } from '../models/notification.model';
 
 const TOKEN_KEY = 'feastgo_token';
 
@@ -141,6 +142,20 @@ export class AuthService {
     const res = await firstValueFrom(this.http.delete<{ user: User }>(`${API_URL}/auth/me/addresses/${addressId}`));
     this.currentUserSig.set(res.user);
     return res.user;
+  }
+
+  listNotifications() {
+    return firstValueFrom(
+      this.http.get<{ notifications: AppNotification[]; unreadCount: number }>(`${API_URL}/auth/me/notifications`)
+    );
+  }
+
+  markNotificationRead(id: string) {
+    return firstValueFrom(this.http.patch<{ notification: AppNotification }>(`${API_URL}/auth/me/notifications/${id}/read`, {}));
+  }
+
+  markAllNotificationsRead() {
+    return firstValueFrom(this.http.patch<{ message: string }>(`${API_URL}/auth/me/notifications/read-all`, {}));
   }
 
   private persist(res: AuthResponse) {

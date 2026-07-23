@@ -64,6 +64,7 @@ export async function verifyOtp(req, res, next) {
 
     const existing = await User.findOne({ phone });
     if (existing) {
+      if (existing.isBlocked) throw new ApiError(403, 'Your account has been blocked. Contact support for help.');
       clearOtp(phone);
       return respondWithToken(res, existing);
     }
@@ -85,6 +86,7 @@ export async function completeProfile(req, res, next) {
 
     const existing = await User.findOne({ phone });
     if (existing) {
+      if (existing.isBlocked) throw new ApiError(403, 'Your account has been blocked. Contact support for help.');
       clearOtp(phone);
       return respondWithToken(res, existing);
     }

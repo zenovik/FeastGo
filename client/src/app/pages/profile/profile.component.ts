@@ -5,6 +5,7 @@ import { Address, Gender, User } from '../../core/models/user.model';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { validateImageFile } from '../../shared/utils/image-file';
 
 @Component({
   selector: 'app-profile',
@@ -308,8 +309,9 @@ export class ProfileComponent {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-    if (file.size > 2_000_000) {
-      this.toast.error('Photo must be under 2MB');
+    const error = validateImageFile(file, 2_000_000);
+    if (error) {
+      this.toast.error(error);
       input.value = '';
       return;
     }

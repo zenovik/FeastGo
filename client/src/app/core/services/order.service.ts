@@ -10,6 +10,7 @@ export interface PlaceOrderPayload {
   items: { menuItemId: string; qty: number }[];
   address: Address;
   paymentMethod: 'card' | 'upi' | 'cod';
+  couponCode?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

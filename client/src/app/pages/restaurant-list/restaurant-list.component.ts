@@ -19,9 +19,16 @@ const SORT_OPTIONS: { value: RestaurantQuery['sort']; label: string }[] = [
   imports: [IconComponent, RestaurantCardComponent],
   template: `
     <div class="container-shell py-8">
-      <h1 class="font-display text-2xl font-bold text-ink-900">
+      <h1 class="flex flex-wrap items-center gap-2 font-display text-2xl font-bold text-ink-900">
         @if (query()) {
-          Results for "{{ query() }}"
+          <span>Results for "{{ query() }}"</span>
+          <button
+            type="button"
+            class="flex items-center gap-1 rounded-full border border-ink-200 px-2.5 py-1 text-xs font-semibold text-ink-500 hover:border-ember-400 hover:text-ember-600"
+            (click)="clearSearch()"
+          >
+            <app-icon name="x" [size]="13" /> Clear search
+          </button>
         } @else if (cuisine()) {
           {{ cuisine() }} restaurants
         } @else {
@@ -141,6 +148,10 @@ export class RestaurantListComponent implements OnInit {
       queryParams: patch,
       queryParamsHandling: 'merge',
     });
+  }
+
+  clearSearch() {
+    this.updateParams({ q: null });
   }
 
   toggleCuisine(c: string) {

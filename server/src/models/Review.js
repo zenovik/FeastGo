@@ -7,6 +7,12 @@ const reviewSchema = new mongoose.Schema(
     userName: { type: String, required: true },
     rating: { type: Number, required: true, min: 1, max: 5 },
     comment: { type: String, default: '' },
+    sellerReply: {
+      text: { type: String, default: '' },
+      at: { type: Date, default: null },
+    },
+    isHidden: { type: Boolean, default: false },
+    reportCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

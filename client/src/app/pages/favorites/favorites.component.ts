@@ -1,4 +1,4 @@
-import { Component, computed } from '@angular/core';
+import { Component, effect, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FoodItem } from '../../core/models/food-item.model';
 import { FoodFavoritesService } from '../../core/services/food-favorites.service';
@@ -37,14 +37,20 @@ import { FoodCardComponent } from '../../shared/components/food-card/food-card.c
   `,
 })
 export class FavoritesComponent {
-  items = computed<FoodItem[]>(() =>
-    [...this.favorites.ids()]
-      .map((id) => this.foodService.getById(id))
-      .filter((item): item is FoodItem => !!item)
-  );
+  items = signal<FoodItem[]>([]);
+  private loadToken = 0;
 
   constructor(
     private favorites: FoodFavoritesService,
     private foodService: FoodService
-  ) {}
+  ) {
+    effect(() => {
+      const ids = [...this.favorites.ids()];
+      const token = ++this.loadToken;
+      Promise.all(ids.map((id) => this.foodService.getById(id))).then((items) => {
+        if (token !== this.loadToken) return;
+        this.items.set(items.filter((item): item is FoodItem => !!item));
+      });
+    });
+  }
 }

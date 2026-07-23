@@ -87,6 +87,36 @@ type PaymentMethod = 'card' | 'upi' | 'cod';
         </section>
 
         <section class="card-surface mt-4 p-4">
+          <h2 class="font-display text-base font-bold text-ink-900">Coupon</h2>
+          @if (appliedCoupon(); as c) {
+            <div class="mt-2 flex items-center justify-between rounded-lg bg-basil-50 px-3 py-2 text-sm">
+              <span class="font-semibold text-basil-700">{{ c.code }} applied — you saved {{ c.discount | inr }}</span>
+              <button type="button" class="text-xs font-bold text-ink-500 hover:text-ink-800" (click)="removeCoupon()">Remove</button>
+            </div>
+          } @else {
+            <div class="mt-2 flex gap-2">
+              <input
+                [(ngModel)]="couponInput"
+                name="couponCode"
+                placeholder="Enter coupon code"
+                class="flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm uppercase outline-none focus:border-ember-400"
+              />
+              <button
+                type="button"
+                [disabled]="!couponInput.trim() || applyingCoupon()"
+                class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                (click)="applyCoupon()"
+              >
+                {{ applyingCoupon() ? 'Checking…' : 'Apply' }}
+              </button>
+            </div>
+            @if (couponError()) {
+              <p class="mt-1.5 text-xs font-medium text-ember-600">{{ couponError() }}</p>
+            }
+          }
+        </section>
+
+        <section class="card-surface mt-4 p-4">
           <h2 class="font-display text-base font-bold text-ink-900">Order summary</h2>
           <div class="mt-2 space-y-1 text-sm">
             @for (line of cart.items(); track line.menuItem._id) {
@@ -127,6 +157,10 @@ export class CheckoutComponent implements OnInit {
   selectedAddressId = signal<string | null>(null);
   paymentMethod = signal<PaymentMethod>('cod');
   placing = signal(false);
+  couponInput = '';
+  applyingCoupon = signal(false);
+  couponError = signal<string | null>(null);
+  appliedCoupon = signal<{ code: string; discount: number } | null>(null);
 
   newAddress: Partial<Address> = { label: 'Home', line1: '', area: '', city: '' };
 
@@ -165,10 +199,32 @@ export class CheckoutComponent implements OnInit {
     return Math.round(this.subtotal() * 0.05);
   }
   discount(): number {
-    return this.subtotal() >= 800 ? Math.round(this.subtotal() * 0.1) : 0;
+    return this.appliedCoupon()?.discount ?? 0;
   }
   total(): number {
     return Math.round(this.subtotal() + this.deliveryFee() + this.taxes() - this.discount());
+  }
+
+  async applyCoupon() {
+    const slug = this.cart.restaurantSlug();
+    if (!slug || !this.couponInput.trim()) return;
+    this.applyingCoupon.set(true);
+    this.couponError.set(null);
+    try {
+      const res = await this.restaurantService.validateCoupon(slug, this.couponInput.trim(), this.subtotal());
+      this.appliedCoupon.set(res);
+      this.toast.success(`Coupon ${res.code} applied`);
+    } catch (err: any) {
+      this.couponError.set(err?.error?.message ?? 'Could not apply this coupon');
+    } finally {
+      this.applyingCoupon.set(false);
+    }
+  }
+
+  removeCoupon() {
+    this.appliedCoupon.set(null);
+    this.couponInput = '';
+    this.couponError.set(null);
   }
 
   async saveAddress(e: Event) {
@@ -193,12 +249,13 @@ export class CheckoutComponent implements OnInit {
         items: this.cart.items().map((i) => ({ menuItemId: i.menuItem._id, qty: i.qty })),
         address,
         paymentMethod: this.paymentMethod(),
+        couponCode: this.appliedCoupon()?.code ?? null,
       });
       this.cart.clear();
       this.toast.success('Order placed!');
       this.router.navigate(['/orders', order._id]);
-    } catch {
-      this.toast.error('Could not place your order. Please try again.');
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? 'Could not place your order. Please try again.');
     } finally {
       this.placing.set(false);
     }

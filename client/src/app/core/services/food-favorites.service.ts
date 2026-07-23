@@ -11,9 +11,9 @@ function loadFromStorage(): string[] {
   }
 }
 
-// Local-only favorites for the dummy Food Feed — the real favorites API is
+// Local-only favorites for the Food Feed — the real favorites API is
 // restaurant-scoped (see AuthService.toggleFavorite), so food-item bookmarks
-// are kept client-side until a food-items backend exists to persist them.
+// are kept client-side rather than persisted server-side.
 @Injectable({ providedIn: 'root' })
 export class FoodFavoritesService {
   private readonly idsSig = signal<Set<string>>(new Set(loadFromStorage()));

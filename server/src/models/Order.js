@@ -3,7 +3,9 @@ import mongoose from 'mongoose';
 export const ORDER_STATUSES = [
   'placed',
   'confirmed',
+  'rejected',
   'preparing',
+  'ready_for_pickup',
   'out_for_delivery',
   'delivered',
   'cancelled',
@@ -31,13 +33,15 @@ const statusHistorySchema = new mongoose.Schema(
 const orderSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    restaurant: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true },
+    restaurant: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true, index: true },
     restaurantName: { type: String, required: true },
+    deliveryPartner: { type: mongoose.Schema.Types.ObjectId, ref: 'DeliveryPartner', default: null, index: true },
     items: [orderItemSchema],
     subtotal: { type: Number, required: true },
     deliveryFee: { type: Number, required: true },
     taxes: { type: Number, required: true },
     discount: { type: Number, default: 0 },
+    couponCode: { type: String, default: null },
     total: { type: Number, required: true },
     status: { type: String, enum: ORDER_STATUSES, default: 'placed' },
     statusHistory: [statusHistorySchema],
@@ -49,6 +53,10 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: { type: String, enum: ['card', 'upi', 'cod'], default: 'cod' },
     etaMinutes: { type: Number, default: 35 },
+    sellerNotes: { type: String, default: '' },
+    refundStatus: { type: String, enum: ['none', 'requested', 'approved', 'rejected', 'refunded'], default: 'none' },
+    refundAmount: { type: Number, default: 0 },
+    refundReason: { type: String, default: '' },
   },
   { timestamps: true }
 );

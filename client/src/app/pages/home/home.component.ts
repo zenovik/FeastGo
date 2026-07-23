@@ -1,9 +1,9 @@
 import { AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { FOOD_ITEMS } from '../../core/data/food-items.data';
 import { FoodItem, foodItemToMenuItem } from '../../core/models/food-item.model';
 import { FoodQuery, FoodService, FoodSort } from '../../core/services/food.service';
 import { ProductModalService } from '../../core/services/product-modal.service';
+import { ScrollRestorationService } from '../../core/services/scroll-restoration.service';
 import { foodCollageBackground, foodImage } from '../../core/utils/food-image.util';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { FoodCardComponent } from '../../shared/components/food-card/food-card.component';
@@ -174,7 +174,7 @@ const EXPLORE_TILES: ExploreTile[] = [
             Made for you
           }
         </h2>
-        <p class="text-sm text-ink-400">{{ feedItems().length }} dishes</p>
+        <p class="text-sm text-ink-400">{{ total() }} dishes</p>
       </div>
 
       @if (loading()) {
@@ -195,7 +195,7 @@ const EXPLORE_TILES: ExploreTile[] = [
           }
         </div>
 
-        @if (visibleCount() < feedItems().length) {
+        @if (visibleCount() < feedItems().length || feedItems().length < total()) {
           <div #scrollSentinel class="mt-6 flex justify-center py-4">
             <div class="h-8 w-8 animate-spin rounded-full border-2 border-ink-200 border-t-[#3B5BDB]"></div>
           </div>
@@ -304,8 +304,11 @@ export class HomeComponent implements OnInit, AfterViewChecked, OnDestroy {
   sort = signal<FoodSort>('popular');
 
   loading = signal(true);
+  loadingMore = signal(false);
   feedItems = signal<FoodItem[]>([]);
   visibleCount = signal(8);
+  total = signal(0);
+  page = signal(1);
 
   todaysSpecials = signal<FoodItem[]>([]);
   popularNearYou = signal<FoodItem[]>([]);
@@ -313,28 +316,30 @@ export class HomeComponent implements OnInit, AfterViewChecked, OnDestroy {
   recommended = signal<FoodItem[]>([]);
 
   private readonly observer = new IntersectionObserver((entries) => {
-    if (entries[0]?.isIntersecting) {
-      this.visibleCount.update((c) => Math.min(c + 8, this.feedItems().length));
-    }
+    if (entries[0]?.isIntersecting) this.loadMore();
   });
   private observedEl: Element | null = null;
 
   constructor(
     private foodService: FoodService,
-    private productModal: ProductModalService
+    private productModal: ProductModalService,
+    private scrollRestoration: ScrollRestorationService
   ) {}
 
   async ngOnInit() {
     await this.fetchFeed();
+    this.scrollRestoration.restore();
 
-    const [specials, popular] = await Promise.all([
+    const [specials, popular, recent, recommended] = await Promise.all([
       this.foodService.list({ bestseller: true, sort: 'rating' }),
       this.foodService.list({ sort: 'rating' }),
+      this.foodService.list({ sort: 'popular' }),
+      this.foodService.list({ sort: 'recommended' }),
     ]);
     this.todaysSpecials.set(specials.items.slice(0, 4));
     this.popularNearYou.set(popular.items.slice(0, 4));
-    this.recentlyOrdered.set(FOOD_ITEMS.slice(4, 8));
-    this.recommended.set([...FOOD_ITEMS].reverse().slice(0, 4));
+    this.recentlyOrdered.set(recent.items.slice(0, 4));
+    this.recommended.set(recommended.items.slice(0, 4));
   }
 
   // Re-attaches the observer whenever the sentinel div appears/disappears
@@ -394,27 +399,52 @@ export class HomeComponent implements OnInit, AfterViewChecked, OnDestroy {
     });
   }
 
+  private buildFeedQuery(): FoodQuery {
+    const filters = this.activeFilters();
+    return {
+      q: this.selectedCategory() ?? undefined,
+      sort: this.sort(),
+      healthy: filters.has('healthy'),
+      veg: filters.has('pureVeg'),
+      minRating: filters.has('rating4') ? 4.0 : undefined,
+      under199: filters.has('under199'),
+      offers: filters.has('offers'),
+      bestseller: filters.has('bestSeller'),
+      fastDelivery: filters.has('nearFast'),
+      newArrival: filters.has('newArrivals'),
+    };
+  }
+
   private async fetchFeed() {
     this.loading.set(true);
     try {
-      const filters = this.activeFilters();
-      const query: FoodQuery = {
-        q: this.selectedCategory() ?? undefined,
-        sort: this.sort(),
-        healthy: filters.has('healthy'),
-        veg: filters.has('pureVeg'),
-        minRating: filters.has('rating4') ? 4.0 : undefined,
-        under199: filters.has('under199'),
-        offers: filters.has('offers'),
-        bestseller: filters.has('bestSeller'),
-        fastDelivery: filters.has('nearFast'),
-        newArrival: filters.has('newArrivals'),
-      };
-      const res = await this.foodService.list(query);
+      const res = await this.foodService.list(this.buildFeedQuery());
       this.feedItems.set(res.items);
+      this.total.set(res.total);
+      this.page.set(1);
       this.visibleCount.set(8);
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  async loadMore() {
+    const items = this.feedItems();
+    if (this.visibleCount() < items.length) {
+      this.visibleCount.update((c) => Math.min(c + 8, items.length));
+      return;
+    }
+    if (this.loadingMore() || items.length >= this.total()) return;
+
+    this.loadingMore.set(true);
+    try {
+      const nextPage = this.page() + 1;
+      const res = await this.foodService.list({ ...this.buildFeedQuery(), page: nextPage });
+      this.feedItems.update((cur) => [...cur, ...res.items]);
+      this.page.set(nextPage);
+      this.visibleCount.update((c) => Math.min(c + 8, items.length + res.items.length));
+    } finally {
+      this.loadingMore.set(false);
     }
   }
 

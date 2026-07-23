@@ -2,11 +2,12 @@ import Restaurant from '../models/Restaurant.js';
 import MenuItem from '../models/MenuItem.js';
 import Review from '../models/Review.js';
 import { ApiError } from '../utils/ApiError.js';
+import { resolveCoupon } from '../utils/coupon.js';
 
 export async function listRestaurants(req, res, next) {
   try {
     const { q, cuisine, sort, veg, maxDeliveryTime, page = 1, limit = 20 } = req.query;
-    const filter = {};
+    const filter = { verificationStatus: 'approved', isSuspended: { $ne: true } };
 
     if (q) filter.$text = { $search: q };
     if (cuisine) filter.cuisines = cuisine;
@@ -41,7 +42,7 @@ export async function listRestaurants(req, res, next) {
 
 export async function getRestaurant(req, res, next) {
   try {
-    const restaurant = await Restaurant.findOne({ slug: req.params.slug });
+    const restaurant = await Restaurant.findOne({ slug: req.params.slug, verificationStatus: 'approved', isSuspended: { $ne: true } });
     if (!restaurant) throw new ApiError(404, 'Restaurant not found');
     res.json({ restaurant });
   } catch (err) {
@@ -51,9 +52,11 @@ export async function getRestaurant(req, res, next) {
 
 export async function getRestaurantMenu(req, res, next) {
   try {
-    const restaurant = await Restaurant.findOne({ slug: req.params.slug });
+    const restaurant = await Restaurant.findOne({ slug: req.params.slug, verificationStatus: 'approved', isSuspended: { $ne: true } });
     if (!restaurant) throw new ApiError(404, 'Restaurant not found');
-    const items = await MenuItem.find({ restaurant: restaurant._id, isAvailable: true }).sort({ category: 1 });
+    const items = await MenuItem.find({ restaurant: restaurant._id, isAvailable: true, isHiddenByAdmin: { $ne: true } }).sort({
+      category: 1,
+    });
     const grouped = items.reduce((acc, item) => {
       (acc[item.category] ||= []).push(item);
       return acc;
@@ -101,6 +104,19 @@ export async function addReview(req, res, next) {
     }
 
     res.status(201).json({ review });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function validateCoupon(req, res, next) {
+  try {
+    const restaurant = await Restaurant.findOne({ slug: req.params.slug, verificationStatus: 'approved', isSuspended: { $ne: true } });
+    if (!restaurant) throw new ApiError(404, 'Restaurant not found');
+
+    const subtotal = Number(req.body.subtotal) || 0;
+    const { coupon, discount } = await resolveCoupon(restaurant._id, req.body.code, subtotal);
+    res.json({ code: coupon.code, discount });
   } catch (err) {
     next(err);
   }

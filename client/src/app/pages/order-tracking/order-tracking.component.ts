@@ -3,8 +3,11 @@ import { Component, OnDestroy, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Order, OrderStatus } from '../../core/models/order.model';
 import { OrderService } from '../../core/services/order.service';
+import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { InrPipe } from '../../shared/pipes/inr.pipe';
+
+const CANCELLABLE_STATUSES: OrderStatus[] = ['placed', 'confirmed', 'preparing', 'ready_for_pickup', 'out_for_delivery'];
 
 const STEPS: { status: OrderStatus; label: string; icon: string }[] = [
   { status: 'placed', label: 'Order placed', icon: 'check' },
@@ -35,6 +38,11 @@ const STEPS: { status: OrderStatus; label: string; icon: string }[] = [
           <div class="card-surface mt-6 flex items-center gap-3 p-4 text-ember-700">
             <app-icon name="alert-triangle" [size]="20" />
             <p class="text-sm font-semibold">This order was cancelled.</p>
+          </div>
+        } @else if (o.status === 'rejected') {
+          <div class="card-surface mt-6 flex items-center gap-3 p-4 text-ember-700">
+            <app-icon name="alert-triangle" [size]="20" />
+            <p class="text-sm font-semibold">The restaurant was unable to accept this order.</p>
           </div>
         } @else {
           <div class="card-surface mt-6 p-5">
@@ -101,6 +109,17 @@ const STEPS: { status: OrderStatus; label: string; icon: string }[] = [
             <span>Total</span><span>{{ o.total | inr }}</span>
           </div>
         </div>
+
+        @if (isCancellable(o.status)) {
+          <button
+            type="button"
+            [disabled]="cancelling()"
+            class="mt-4 w-full rounded-lg border border-ember-200 py-2.5 text-sm font-bold text-ember-600 hover:bg-ember-50 disabled:opacity-50"
+            (click)="cancelOrder(o._id)"
+          >
+            {{ cancelling() ? 'Cancelling…' : 'Cancel order' }}
+          </button>
+        }
       }
     </div>
   `,
@@ -109,11 +128,13 @@ export class OrderTrackingComponent implements OnInit, OnDestroy {
   steps = STEPS;
   loading = signal(true);
   order = signal<Order | null>(null);
+  cancelling = signal(false);
   private pollHandle?: ReturnType<typeof setInterval>;
 
   constructor(
     private route: ActivatedRoute,
-    private orderService: OrderService
+    private orderService: OrderService,
+    private toast: ToastService
   ) {}
 
   async ngOnInit() {
@@ -131,7 +152,7 @@ export class OrderTrackingComponent implements OnInit, OnDestroy {
     try {
       const { order } = await this.orderService.get(id);
       this.order.set(order);
-      if (order.status === 'delivered' || order.status === 'cancelled') {
+      if (order.status === 'delivered' || order.status === 'cancelled' || order.status === 'rejected') {
         if (this.pollHandle) clearInterval(this.pollHandle);
       }
     } catch {
@@ -150,5 +171,23 @@ export class OrderTrackingComponent implements OnInit, OnDestroy {
 
   timeFor(status: OrderStatus): string | null {
     return this.order()?.statusHistory.find((h) => h.status === status)?.at ?? null;
+  }
+
+  isCancellable(status: OrderStatus): boolean {
+    return CANCELLABLE_STATUSES.includes(status);
+  }
+
+  async cancelOrder(id: string) {
+    this.cancelling.set(true);
+    try {
+      const { order } = await this.orderService.cancel(id);
+      this.order.set(order);
+      if (this.pollHandle) clearInterval(this.pollHandle);
+      this.toast.success('Order cancelled');
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? 'Could not cancel order');
+    } finally {
+      this.cancelling.set(false);
+    }
   }
 }

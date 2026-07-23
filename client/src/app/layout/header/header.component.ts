@@ -1,12 +1,21 @@
-import { Component, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { Address } from '../../core/models/user.model';
+import { AppNotification } from '../../core/models/notification.model';
 import { AuthService } from '../../core/services/auth.service';
 import { CartService } from '../../core/services/cart.service';
 import { LocationService } from '../../core/services/location.service';
 import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { SearchBarComponent } from '../../shared/components/search-bar/search-bar.component';
+
+const NOTIFICATION_ICON: Record<string, string> = {
+  new_order: 'receipt',
+  cancelled_order: 'alert-triangle',
+  payment: 'credit-card',
+  low_stock: 'package',
+  general: 'bell',
+};
 
 @Component({
   selector: 'app-header',
@@ -22,7 +31,7 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
           <span class="font-display text-xl font-extrabold tracking-tight text-ink-900">FeastGo</span>
         </a>
 
-        <div class="relative hidden shrink-0 sm:block">
+        <div class="relative hidden shrink-0 sm:block" #locationWrapper>
           <button
             type="button"
             class="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-ink-600 hover:bg-ink-50"
@@ -105,6 +114,57 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
             </a>
           }
 
+          @if (auth.isAuthenticated()) {
+            <div class="relative" #notifWrapper>
+              <button
+                type="button"
+                class="relative rounded-lg p-2.5 text-ink-700 hover:bg-ink-50"
+                (click)="toggleNotifications()"
+                aria-label="Notifications"
+              >
+                <app-icon name="bell" [size]="20" />
+                @if (unreadCount() > 0) {
+                  <span
+                    class="absolute -right-0.5 -top-0.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white"
+                  >
+                    {{ unreadCount() > 9 ? '9+' : unreadCount() }}
+                  </span>
+                }
+              </button>
+
+              @if (notifOpen()) {
+                <div class="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-xl border border-ink-100 bg-white p-2 shadow-[var(--shadow-pop)]">
+                  <div class="flex items-center justify-between px-2 py-1.5">
+                    <p class="text-sm font-bold text-ink-900">Notifications</p>
+                    @if (unreadCount() > 0) {
+                      <button type="button" class="text-xs font-semibold text-ember-600" (click)="markAllRead()">Mark all read</button>
+                    }
+                  </div>
+                  <div class="max-h-80 overflow-y-auto">
+                    @for (n of notifications(); track n._id) {
+                      <button
+                        type="button"
+                        class="flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left hover:bg-ink-50"
+                        [class.bg-ember-50]="!n.isRead"
+                        (click)="onNotificationClick(n)"
+                      >
+                        <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ink-100 text-ink-600">
+                          <app-icon [name]="notifIcon(n.type)" [size]="14" />
+                        </span>
+                        <span class="min-w-0">
+                          <span class="block truncate text-sm font-semibold text-ink-900">{{ n.title }}</span>
+                          <span class="block truncate text-xs text-ink-400">{{ n.message }}</span>
+                        </span>
+                      </button>
+                    } @empty {
+                      <p class="p-4 text-center text-sm text-ink-400">No notifications yet.</p>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+
           <button
             type="button"
             class="relative rounded-lg p-2.5 text-ink-700 hover:bg-ink-50"
@@ -122,7 +182,7 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
           </button>
 
           @if (auth.isAuthenticated()) {
-            <div class="relative">
+            <div class="relative" #menuWrapper>
               <button
                 type="button"
                 class="flex items-center gap-1.5 rounded-lg py-1.5 pl-1.5 pr-2 hover:bg-ink-50"
@@ -177,9 +237,18 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
     </header>
   `,
 })
-export class HeaderComponent {
+export class HeaderComponent implements OnInit, OnDestroy {
   menuOpen = signal(false);
   locationOpen = signal(false);
+  notifOpen = signal(false);
+  notifications = signal<AppNotification[]>([]);
+  unreadCount = signal(0);
+
+  @ViewChild('locationWrapper') locationWrapper?: ElementRef<HTMLElement>;
+  @ViewChild('notifWrapper') notifWrapper?: ElementRef<HTMLElement>;
+  @ViewChild('menuWrapper') menuWrapper?: ElementRef<HTMLElement>;
+
+  private pollHandle?: ReturnType<typeof setInterval>;
 
   constructor(
     public auth: AuthService,
@@ -188,6 +257,66 @@ export class HeaderComponent {
     private router: Router,
     private toast: ToastService
   ) {}
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const target = event.target as Node;
+    if (this.locationOpen() && !this.locationWrapper?.nativeElement.contains(target)) {
+      this.locationOpen.set(false);
+    }
+    if (this.notifOpen() && !this.notifWrapper?.nativeElement.contains(target)) {
+      this.notifOpen.set(false);
+    }
+    if (this.menuOpen() && !this.menuWrapper?.nativeElement.contains(target)) {
+      this.menuOpen.set(false);
+    }
+  }
+
+  ngOnInit() {
+    if (this.auth.isAuthenticated()) this.refreshNotifications();
+    this.pollHandle = setInterval(() => {
+      if (this.auth.isAuthenticated()) this.refreshNotifications();
+    }, 20000);
+  }
+
+  ngOnDestroy() {
+    if (this.pollHandle) clearInterval(this.pollHandle);
+  }
+
+  notifIcon(type: string): string {
+    return NOTIFICATION_ICON[type] ?? 'bell';
+  }
+
+  private async refreshNotifications() {
+    try {
+      const res = await this.auth.listNotifications();
+      this.notifications.set(res.notifications.slice(0, 15));
+      this.unreadCount.set(res.unreadCount);
+    } catch {
+      // silent — notifications are a non-critical enhancement
+    }
+  }
+
+  toggleNotifications() {
+    this.notifOpen.update((v) => !v);
+    if (this.notifOpen()) this.refreshNotifications();
+  }
+
+  async markAllRead() {
+    await this.auth.markAllNotificationsRead();
+    this.notifications.update((list) => list.map((n) => ({ ...n, isRead: true })));
+    this.unreadCount.set(0);
+  }
+
+  async onNotificationClick(n: AppNotification) {
+    if (!n.isRead) {
+      await this.auth.markNotificationRead(n._id);
+      n.isRead = true;
+      this.unreadCount.update((c) => Math.max(0, c - 1));
+    }
+    this.notifOpen.set(false);
+    if (n.relatedOrder) this.router.navigate(['/orders', n.relatedOrder]);
+  }
 
   useCurrentLocation(e: Event) {
     e.stopPropagation();

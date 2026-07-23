@@ -156,7 +156,12 @@ export class SearchBarComponent {
     }
   }
 
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  private searchToken = 0;
+
   onInput() {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+
     const q = this.query.trim();
     if (q.length < 2) {
       this.results.set([]);
@@ -164,9 +169,15 @@ export class SearchBarComponent {
       this.activeIndex.set(-1);
       return;
     }
-    this.results.set(this.search.search(q));
+
     this.isOpen.set(true);
-    this.activeIndex.set(-1);
+    const token = ++this.searchToken;
+    this.searchTimer = setTimeout(async () => {
+      const results = await this.search.search(q);
+      if (token !== this.searchToken) return;
+      this.results.set(results);
+      this.activeIndex.set(-1);
+    }, 200);
   }
 
   onKeydown(e: KeyboardEvent) {
@@ -198,12 +209,14 @@ export class SearchBarComponent {
       restaurantSlug: item.restaurantId,
       restaurantName: item.restaurantName,
     });
+    this.query = '';
     this.closeDropdown();
   }
 
   goToRestaurant(e: Event, item: FoodItem) {
     e.stopPropagation();
     e.preventDefault();
+    this.query = '';
     this.closeDropdown();
     this.router.navigate(['/restaurants', item.restaurantId]);
   }
@@ -216,6 +229,7 @@ export class SearchBarComponent {
   submitSearch(e: Event) {
     e.preventDefault();
     const term = this.query.trim();
+    this.query = '';
     this.closeDropdown();
     this.router.navigate(['/restaurants'], term ? { queryParams: { q: term } } : {});
   }

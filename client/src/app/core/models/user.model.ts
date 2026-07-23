@@ -22,7 +22,9 @@ export interface User {
   photo: string | null;
   location: { lat: number | null; lng: number | null };
   role: 'user' | 'admin';
+  adminRole?: 'super_admin' | 'manager' | 'support' | null;
   addresses: Address[];
   favoriteRestaurants: string[];
+  isBlocked?: boolean;
   createdAt: string;
 }
