@@ -2,7 +2,8 @@ import { Router } from 'express';
 import {
   requestOtp,
   verifyOtp,
-  completeProfile,
+  completeSignup,
+  refreshToken,
   logout,
   me,
   updateProfile,
@@ -16,13 +17,23 @@ import {
   removeAddress,
 } from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
-import { listMyNotifications, markNotificationRead, markAllNotificationsRead } from '../controllers/notificationController.js';
+import {
+  listMyNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification,
+  clearAllNotifications,
+  archiveNotification,
+  restoreNotification,
+  bulkNotificationAction,
+} from '../controllers/notificationController.js';
 
 const router = Router();
 
 router.post('/otp/request', requestOtp);
 router.post('/otp/verify', verifyOtp);
-router.post('/complete-profile', completeProfile);
+router.post('/complete-signup', completeSignup);
+router.post('/refresh-token', requireAuth, refreshToken);
 router.post('/logout', logout);
 router.get('/me', requireAuth, me);
 router.patch('/me', requireAuth, updateProfile);
@@ -37,5 +48,10 @@ router.delete('/me/addresses/:addressId', requireAuth, removeAddress);
 router.get('/me/notifications', requireAuth, listMyNotifications);
 router.patch('/me/notifications/:id/read', requireAuth, markNotificationRead);
 router.patch('/me/notifications/read-all', requireAuth, markAllNotificationsRead);
+router.patch('/me/notifications/bulk', requireAuth, bulkNotificationAction);
+router.patch('/me/notifications/:id/archive', requireAuth, archiveNotification);
+router.patch('/me/notifications/:id/restore', requireAuth, restoreNotification);
+router.delete('/me/notifications/clear-all', requireAuth, clearAllNotifications);
+router.delete('/me/notifications/:id', requireAuth, deleteNotification);
 
 export default router;

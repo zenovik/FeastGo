@@ -52,7 +52,7 @@ import { InrPipe } from '../../../shared/pipes/inr.pipe';
             @for (user of users(); track user.id) {
               <tr class="border-t border-ink-100 dark:border-ink-800">
                 <td class="cursor-pointer px-4 py-2.5 font-medium text-ink-900 dark:text-white" (click)="openDetail(user)">{{ user.name }}</td>
-                <td class="px-4 py-2.5 text-ink-600 dark:text-ink-300">{{ user.phone }}</td>
+                <td class="px-4 py-2.5 text-ink-600 dark:text-ink-300">{{ user.phone || '—' }}</td>
                 <td class="px-4 py-2.5 text-ink-600 dark:text-ink-300">{{ user.email || '—' }}</td>
                 <td class="px-4 py-2.5">
                   @if (user.isBlocked) {
@@ -87,7 +87,7 @@ import { InrPipe } from '../../../shared/pipes/inr.pipe';
               <button type="button" class="text-ink-400" (click)="detailUser.set(null)"><app-icon name="x" [size]="20" /></button>
             </div>
             <div class="mt-3 space-y-1.5 text-sm">
-              <p class="text-ink-500 dark:text-ink-400">Phone: <span class="text-ink-900 dark:text-white">{{ u.phone }}</span></p>
+              <p class="text-ink-500 dark:text-ink-400">Phone: <span class="text-ink-900 dark:text-white">{{ u.phone || '—' }}</span></p>
               <p class="text-ink-500 dark:text-ink-400">Email: <span class="text-ink-900 dark:text-white">{{ u.email || '—' }}</span></p>
               <p class="text-ink-500 dark:text-ink-400">Joined: <span class="text-ink-900 dark:text-white">{{ u.createdAt | date: 'mediumDate' }}</span></p>
             </div>
@@ -163,7 +163,7 @@ export class AdminUsersComponent implements OnInit {
   exportCsv() {
     const rows = [['Name', 'Phone', 'Email', 'Status', 'Joined'].join(',')];
     for (const u of this.users()) {
-      rows.push([u.name, u.phone, u.email ?? '', u.isBlocked ? 'Blocked' : 'Active', u.createdAt].map((v) => `"${v}"`).join(','));
+      rows.push([u.name, u.phone ?? '', u.email ?? '', u.isBlocked ? 'Blocked' : 'Active', u.createdAt].map((v) => `"${v}"`).join(','));
     }
     const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);

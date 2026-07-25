@@ -3,6 +3,7 @@ import MenuItem from '../models/MenuItem.js';
 import Review from '../models/Review.js';
 import { ApiError } from '../utils/ApiError.js';
 import { resolveCoupon } from '../utils/coupon.js';
+import { notifySeller } from '../utils/notify.js';
 
 export async function listRestaurants(req, res, next) {
   try {
@@ -102,6 +103,13 @@ export async function addReview(req, res, next) {
       restaurant.ratingCount = stats[0].count;
       await restaurant.save();
     }
+
+    await notifySeller(
+      restaurant,
+      'new_review',
+      'New review received',
+      `${req.user.name} left a ${rating}-star review${comment ? `: "${comment}"` : ''}`
+    );
 
     res.status(201).json({ review });
   } catch (err) {

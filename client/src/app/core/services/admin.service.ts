@@ -9,7 +9,7 @@ import { Order } from '../models/order.model';
 import { SellerAccount, DeliveryAccount, AdminAccount } from '../models/role-account.model';
 import { AuditLog } from '../models/audit-log.model';
 import { SystemSettings } from '../models/system-settings.model';
-import { AppNotification } from '../models/notification.model';
+import { requestWithProgress } from '../../shared/utils/http-progress';
 
 export interface AdminCategory {
   _id: string;
@@ -161,9 +161,9 @@ export class AdminService {
     return firstValueFrom(this.http.get<{ partners: DeliveryAccount[] }>(`${API_URL}/admin/delivery-partners`, { params }));
   }
 
-  setDeliveryPartnerStatus(id: string, status: string) {
+  setDeliveryPartnerStatus(id: string, status: string, reason?: string) {
     return firstValueFrom(
-      this.http.patch<{ partner: DeliveryAccount }>(`${API_URL}/admin/delivery-partners/${id}/status`, { status })
+      this.http.patch<{ partner: DeliveryAccount }>(`${API_URL}/admin/delivery-partners/${id}/status`, { status, reason })
     );
   }
 
@@ -183,6 +183,52 @@ export class AdminService {
 
   assignDeliveryPartner(orderId: string, partnerId: string) {
     return firstValueFrom(this.http.post<{ order: Order }>(`${API_URL}/admin/orders/${orderId}/assign-delivery`, { partnerId }));
+  }
+
+  listLiveDeliveries() {
+    return firstValueFrom(
+      this.http.get<{
+        orders: (Omit<Order, 'deliveryPartner'> & {
+          deliveryPartner: { _id: string; name: string; phone: string; vehicleType: string; vehicleNumber: string; location: { lat: number | null; lng: number | null }; lastLocationAt: string | null } | null;
+        })[];
+      }>(`${API_URL}/admin/deliveries/live`)
+    );
+  }
+
+  listDeliveryIssues(status?: string) {
+    const params: Record<string, string> = status ? { status } : {};
+    return firstValueFrom(
+      this.http.get<{
+        issues: {
+          _id: string;
+          order: { _id: string; restaurantName: string; total: number; status: string; deliveryStatus: string } | null;
+          restaurant: { _id: string; name: string } | null;
+          reportedBy: { _id: string; name?: string; businessName?: string } | null;
+          partner: { _id: string; name: string; phone: string } | null;
+          reason: string;
+          status: 'open' | 'resolved';
+          resolution: string;
+          resolvedAt: string | null;
+          createdAt: string;
+        }[];
+      }>(`${API_URL}/admin/delivery-issues`, { params })
+    );
+  }
+
+  resolveDeliveryIssue(id: string, resolution: string) {
+    return firstValueFrom(this.http.patch<{ issue: unknown }>(`${API_URL}/admin/delivery-issues/${id}/resolve`, { resolution }));
+  }
+
+  getDeliveryAnalytics() {
+    return firstValueFrom(
+      this.http.get<{
+        dailyDeliveries: { date: string; count: number }[];
+        monthlyDeliveries: { month: string; count: number }[];
+        failedDeliveries: number;
+        totalDeliveryEarnings: number;
+        avgDeliveryMinutes: number;
+      }>(`${API_URL}/admin/reports/delivery-analytics`)
+    );
   }
 
   // ---- Restaurants ----
@@ -230,8 +276,11 @@ export class AdminService {
     return firstValueFrom(this.http.get<{ items: { name: string; qty: number }[] }>(`${API_URL}/admin/foods/trending`));
   }
 
-  updateFood(id: string, payload: Partial<MenuItem>) {
-    return firstValueFrom(this.http.patch<{ item: AdminMenuItem }>(`${API_URL}/admin/foods/${id}`, payload));
+  updateFood(id: string, payload: Partial<MenuItem>, onProgress?: (pct: number) => void) {
+    return requestWithProgress<{ item: AdminMenuItem }>(
+      this.http.patch<{ item: AdminMenuItem }>(`${API_URL}/admin/foods/${id}`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
   }
 
   setFoodHidden(id: string, isHiddenByAdmin: boolean) {
@@ -293,12 +342,18 @@ export class AdminService {
     return firstValueFrom(this.http.get<{ categories: AdminCategory[] }>(`${API_URL}/admin/categories`));
   }
 
-  createCategory(payload: { name: string; image?: string }) {
-    return firstValueFrom(this.http.post<{ category: AdminCategory }>(`${API_URL}/admin/categories`, payload));
+  createCategory(payload: { name: string; image?: string }, onProgress?: (pct: number) => void) {
+    return requestWithProgress<{ category: AdminCategory }>(
+      this.http.post<{ category: AdminCategory }>(`${API_URL}/admin/categories`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
   }
 
-  updateCategory(id: string, payload: Partial<AdminCategory>) {
-    return firstValueFrom(this.http.patch<{ category: AdminCategory }>(`${API_URL}/admin/categories/${id}`, payload));
+  updateCategory(id: string, payload: Partial<AdminCategory>, onProgress?: (pct: number) => void) {
+    return requestWithProgress<{ category: AdminCategory }>(
+      this.http.patch<{ category: AdminCategory }>(`${API_URL}/admin/categories/${id}`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
   }
 
   reorderCategories(categoryIds: string[]) {
@@ -331,12 +386,18 @@ export class AdminService {
     return firstValueFrom(this.http.get<{ banners: AdminBanner[] }>(`${API_URL}/admin/banners`));
   }
 
-  createBanner(payload: Partial<AdminBanner>) {
-    return firstValueFrom(this.http.post<{ banner: AdminBanner }>(`${API_URL}/admin/banners`, payload));
+  createBanner(payload: Partial<AdminBanner>, onProgress?: (pct: number) => void) {
+    return requestWithProgress<{ banner: AdminBanner }>(
+      this.http.post<{ banner: AdminBanner }>(`${API_URL}/admin/banners`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
   }
 
-  updateBanner(id: string, payload: Partial<AdminBanner>) {
-    return firstValueFrom(this.http.patch<{ banner: AdminBanner }>(`${API_URL}/admin/banners/${id}`, payload));
+  updateBanner(id: string, payload: Partial<AdminBanner>, onProgress?: (pct: number) => void) {
+    return requestWithProgress<{ banner: AdminBanner }>(
+      this.http.patch<{ banner: AdminBanner }>(`${API_URL}/admin/banners/${id}`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
   }
 
   deleteBanner(id: string) {
@@ -392,7 +453,7 @@ export class AdminService {
   getDeliveryReport() {
     return firstValueFrom(
       this.http.get<{
-        partners: { id: string; name: string; status: string; isOnline: boolean; deliveries: number; earnings: number }[];
+        partners: { id: string; name: string; status: string; isOnline: boolean; rating: number; deliveries: number; earnings: number }[];
       }>(`${API_URL}/admin/reports/delivery`)
     );
   }
@@ -407,27 +468,25 @@ export class AdminService {
   }
 
   // ---- Notifications ----
-  listNotifications(unreadOnly = false) {
-    const params: Record<string, string> = unreadOnly ? { unreadOnly: 'true' } : {};
+  broadcastNotification(payload: {
+    audience: 'customer' | 'seller' | 'delivery' | 'all';
+    title: string;
+    message: string;
+    targetType?: 'audience' | 'individual';
+    targetId?: string;
+    category?: 'promotional' | 'maintenance' | 'festival' | 'emergency' | null;
+    priority?: 'low' | 'medium' | 'high' | 'critical';
+    scheduledFor?: string | null;
+  }) {
     return firstValueFrom(
-      this.http.get<{ notifications: AppNotification[]; unreadCount: number }>(`${API_URL}/admin/notifications`, { params })
+      this.http.post<{ message: string; recipientCount: number; scheduled: boolean }>(`${API_URL}/admin/notifications/broadcast`, payload)
     );
   }
 
-  markNotificationRead(id: string) {
-    return firstValueFrom(this.http.patch<{ notification: AppNotification }>(`${API_URL}/admin/notifications/${id}/read`, {}));
-  }
-
-  markAllNotificationsRead() {
-    return firstValueFrom(this.http.patch<{ message: string }>(`${API_URL}/admin/notifications/read-all`, {}));
-  }
-
-  broadcastNotification(audience: 'customer' | 'seller' | 'delivery' | 'all', title: string, message: string) {
+  searchNotificationRecipients(role: 'customer' | 'seller' | 'delivery', q: string) {
     return firstValueFrom(
-      this.http.post<{ message: string; recipientCount: number }>(`${API_URL}/admin/notifications/broadcast`, {
-        audience,
-        title,
-        message,
+      this.http.get<{ accounts: { id: string; name: string; email?: string; phone?: string }[] }>(`${API_URL}/admin/notifications/search-recipients`, {
+        params: { role, q },
       })
     );
   }

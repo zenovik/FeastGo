@@ -4,9 +4,13 @@ import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
 import { Address, Gender, User } from '../models/user.model';
 import { Restaurant } from '../models/restaurant.model';
-import { AppNotification } from '../models/notification.model';
+import { clearStoredToken, getStoredToken, replaceStoredToken, setStoredToken } from '../utils/token-storage';
+import { requestWithProgress } from '../../shared/utils/http-progress';
 
 const TOKEN_KEY = 'feastgo_token';
+
+export type AuthMethod = 'phone' | 'email';
+export type AuthMode = 'login' | 'signup';
 
 interface AuthResponse {
   token: string;
@@ -17,8 +21,6 @@ interface OtpRequestResponse {
   message: string;
   devOtp?: string;
 }
-
-type OtpVerifyResponse = AuthResponse | { newUser: true; phone: string };
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -34,7 +36,7 @@ export class AuthService {
   }
 
   private async bootstrap() {
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = getStoredToken(TOKEN_KEY);
     if (!token) {
       this.initializedSig.set(true);
       return;
@@ -43,40 +45,62 @@ export class AuthService {
       const res = await firstValueFrom(this.http.get<{ user: User }>(`${API_URL}/auth/me`));
       this.currentUserSig.set(res.user);
     } catch {
-      localStorage.removeItem(TOKEN_KEY);
+      clearStoredToken(TOKEN_KEY);
     } finally {
       this.initializedSig.set(true);
     }
   }
 
-  requestOtp(phone: string) {
-    return firstValueFrom(this.http.post<OtpRequestResponse>(`${API_URL}/auth/otp/request`, { phone }));
+  requestOtp(method: AuthMethod, value: string, mode: AuthMode) {
+    return firstValueFrom(this.http.post<OtpRequestResponse>(`${API_URL}/auth/otp/request`, { method, value, mode }));
   }
 
-  async verifyOtp(phone: string, code: string): Promise<{ newUser: true; phone: string } | { newUser: false; user: User }> {
+  async verifyLoginOtp(method: AuthMethod, value: string, code: string, remember: boolean) {
     const res = await firstValueFrom(
-      this.http.post<OtpVerifyResponse>(`${API_URL}/auth/otp/verify`, { phone, code })
+      this.http.post<AuthResponse>(`${API_URL}/auth/otp/verify`, { method, value, code, mode: 'login' })
     );
-    if ('newUser' in res) return res;
-    this.persist(res);
-    return { newUser: false, user: res.user };
-  }
-
-  async completeProfile(phone: string, name: string, email?: string) {
-    const res = await firstValueFrom(
-      this.http.post<AuthResponse>(`${API_URL}/auth/complete-profile`, { phone, name, email })
-    );
-    this.persist(res);
+    this.persist(res, remember);
     return res.user;
   }
 
-  async updateProfile(updates: {
-    name?: string;
-    gender?: Gender | null;
-    photo?: string | null;
-    location?: { lat: number; lng: number } | null;
-  }) {
-    const res = await firstValueFrom(this.http.patch<{ user: User }>(`${API_URL}/auth/me`, updates));
+  verifySignupOtp(method: AuthMethod, value: string, code: string) {
+    return firstValueFrom(
+      this.http.post<{ verified: true }>(`${API_URL}/auth/otp/verify`, { method, value, code, mode: 'signup' })
+    );
+  }
+
+  async completeSignup(method: AuthMethod, value: string, name: string, termsAccepted: boolean, remember: boolean) {
+    const res = await firstValueFrom(
+      this.http.post<AuthResponse>(`${API_URL}/auth/complete-signup`, { method, value, name, termsAccepted })
+    );
+    this.persist(res, remember);
+    return res.user;
+  }
+
+  async refreshToken() {
+    try {
+      const res = await firstValueFrom(this.http.post<AuthResponse>(`${API_URL}/auth/refresh-token`, {}));
+      replaceStoredToken(TOKEN_KEY, res.token);
+      this.currentUserSig.set(res.user);
+    } catch {
+      // best effort — an expired/invalid token here just means the next
+      // authenticated request will 401 and the user re-logs in normally
+    }
+  }
+
+  async updateProfile(
+    updates: {
+      name?: string;
+      gender?: Gender | null;
+      photo?: string | null;
+      location?: { lat: number; lng: number } | null;
+    },
+    onProgress?: (pct: number) => void
+  ) {
+    const res = await requestWithProgress<{ user: User }>(
+      this.http.patch<{ user: User }>(`${API_URL}/auth/me`, updates, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
     this.currentUserSig.set(res.user);
     return res.user;
   }
@@ -123,7 +147,7 @@ export class AuthService {
   }
 
   async logout() {
-    localStorage.removeItem(TOKEN_KEY);
+    clearStoredToken(TOKEN_KEY);
     this.currentUserSig.set(null);
     try {
       await firstValueFrom(this.http.post(`${API_URL}/auth/logout`, {}));
@@ -144,22 +168,8 @@ export class AuthService {
     return res.user;
   }
 
-  listNotifications() {
-    return firstValueFrom(
-      this.http.get<{ notifications: AppNotification[]; unreadCount: number }>(`${API_URL}/auth/me/notifications`)
-    );
-  }
-
-  markNotificationRead(id: string) {
-    return firstValueFrom(this.http.patch<{ notification: AppNotification }>(`${API_URL}/auth/me/notifications/${id}/read`, {}));
-  }
-
-  markAllNotificationsRead() {
-    return firstValueFrom(this.http.patch<{ message: string }>(`${API_URL}/auth/me/notifications/read-all`, {}));
-  }
-
-  private persist(res: AuthResponse) {
-    localStorage.setItem(TOKEN_KEY, res.token);
+  private persist(res: AuthResponse, remember: boolean) {
+    setStoredToken(TOKEN_KEY, res.token, remember);
     this.currentUserSig.set(res.user);
   }
 }

@@ -1,4 +1,5 @@
 import { HttpInterceptorFn } from '@angular/common/http';
+import { getStoredToken } from '../utils/token-storage';
 
 // Each role authenticates against a separate collection/token, so the
 // storage key — and therefore which token gets attached — depends on which
@@ -11,7 +12,7 @@ function tokenKeyFor(url: string): string {
 }
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const token = localStorage.getItem(tokenKeyFor(req.url));
+  const token = getStoredToken(tokenKeyFor(req.url));
   if (!token) return next(req);
   return next(
     req.clone({

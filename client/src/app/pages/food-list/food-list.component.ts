@@ -1,8 +1,10 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FoodItem } from '../../core/models/food-item.model';
+import { CategoryService } from '../../core/services/category.service';
 import { FoodPriceRange, FoodQuery, FoodService, FoodSort } from '../../core/services/food.service';
 import { ScrollRestorationService } from '../../core/services/scroll-restoration.service';
+import { foodImage } from '../../core/utils/food-image.util';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { FoodCardComponent } from '../../shared/components/food-card/food-card.component';
 
@@ -11,6 +13,28 @@ interface FilterChip {
   label: string;
   icon?: string;
 }
+
+interface CategoryTile {
+  name: string;
+  image: string;
+}
+
+// Cycled through for admin-created categories that don't have an uploaded
+// image, so the strip still looks intentional instead of showing a blank tile.
+const CATEGORY_FALLBACKS: { emoji: string; gradient: [string, string] }[] = [
+  { emoji: '🍽️', gradient: ['#f2764f', '#b8321f'] },
+  { emoji: '🍔', gradient: ['#c17a3f', '#5c3a21'] },
+  { emoji: '🍛', gradient: ['#f3722c', '#7a1a1a'] },
+  { emoji: '🥡', gradient: ['#e63946', '#7b1113'] },
+  { emoji: '🧈', gradient: ['#ee9b00', '#9b2226'] },
+  { emoji: '🫓', gradient: ['#e9c46a', '#6a4c1e'] },
+  { emoji: '🥟', gradient: ['#e56b6f', '#6d1a36'] },
+  { emoji: '🥪', gradient: ['#74c69d', '#1b4332'] },
+  { emoji: '🍝', gradient: ['#e07a5f', '#5c1a1b'] },
+  { emoji: '🍨', gradient: ['#ff8fd6', '#8e3b8e'] },
+  { emoji: '☕', gradient: ['#56cfe1', '#12505a'] },
+  { emoji: '🍰', gradient: ['#c2489c', '#8e3b8e'] },
+];
 
 const FILTER_CHIPS: FilterChip[] = [
   { key: 'veg', label: 'Veg', icon: 'leaf' },
@@ -46,7 +70,29 @@ const PRICE_RANGES: { value: FoodPriceRange | ''; label: string }[] = [
   imports: [IconComponent, FoodCardComponent],
   template: `
     <div class="container-shell py-8">
-      <h1 class="flex flex-wrap items-center gap-2 font-display text-2xl font-bold text-ink-900">
+      @if (categoryTiles().length) {
+        <div class="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+          @for (c of categoryTiles(); track c.name) {
+            <button
+              type="button"
+              class="flex w-20 shrink-0 flex-col items-center gap-2 text-center"
+              (click)="selectCategory(c.name)"
+            >
+              <span
+                class="h-16 w-16 overflow-hidden rounded-full transition"
+                [class]="query() === c.name ? 'ring-3 ring-ember-500 ring-offset-2' : 'ring-1 ring-ink-100'"
+              >
+                <img [src]="c.image" alt="" class="h-full w-full object-cover" loading="lazy" />
+              </span>
+              <span class="text-xs font-semibold" [class]="query() === c.name ? 'text-ember-600' : 'text-ink-700'">
+                {{ c.name }}
+              </span>
+            </button>
+          }
+        </div>
+      }
+
+      <h1 class="mt-6 flex flex-wrap items-center gap-2 font-display text-2xl font-bold text-ink-900">
         @if (query()) {
           <span>Results for "{{ query() }}"</span>
           <button
@@ -142,6 +188,7 @@ export class FoodListComponent implements OnInit {
   sortOptions = SORT_OPTIONS;
   priceRanges = PRICE_RANGES;
 
+  categoryTiles = signal<CategoryTile[]>([]);
   query = signal<string | null>(null);
   sort = signal<FoodSort>('popular');
   priceRange = signal<FoodPriceRange | ''>('');
@@ -159,10 +206,12 @@ export class FoodListComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private foodService: FoodService,
+    private categoryService: CategoryService,
     private scrollRestoration: ScrollRestorationService
   ) {}
 
   ngOnInit() {
+    this.loadCategories();
     this.route.queryParamMap.subscribe(async (params) => {
       this.query.set(params.get('q'));
       await this.fetch();
@@ -170,6 +219,28 @@ export class FoodListComponent implements OnInit {
         this.initialLoad = false;
         this.scrollRestoration.restore();
       }
+    });
+  }
+
+  private async loadCategories() {
+    try {
+      const { categories } = await this.categoryService.list();
+      this.categoryTiles.set(
+        categories.map((c, i) => {
+          const fallback = CATEGORY_FALLBACKS[i % CATEGORY_FALLBACKS.length];
+          return { name: c.name, image: c.image || foodImage(fallback.emoji, fallback.gradient[0], fallback.gradient[1]) };
+        })
+      );
+    } catch {
+      // Category strip is a non-critical enhancement — leave it empty on failure.
+    }
+  }
+
+  selectCategory(name: string) {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { q: this.query() === name ? null : name },
+      queryParamsHandling: 'merge',
     });
   }
 

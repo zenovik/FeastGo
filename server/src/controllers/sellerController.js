@@ -3,8 +3,10 @@ import Restaurant from '../models/Restaurant.js';
 import Order, { ORDER_STATUSES } from '../models/Order.js';
 import Coupon from '../models/Coupon.js';
 import Review from '../models/Review.js';
+import DeliveryIssue from '../models/DeliveryIssue.js';
 import { ApiError } from '../utils/ApiError.js';
-import { notifyCustomerOrderStatus } from '../utils/notify.js';
+import { notifyCustomerOrderStatus, notifySellerAccount, notifyAdmins } from '../utils/notify.js';
+import { autoAssignDeliveryPartner } from '../utils/deliveryAssign.js';
 
 function requireOwnRestaurant(req) {
   if (!req.user.restaurant) throw new ApiError(400, 'Register a restaurant first');
@@ -146,6 +148,7 @@ export async function createMenuItem(req, res, next) {
     }
 
     const item = await MenuItem.create(payload);
+    await notifySellerAccount(req.user._id, 'menu_added', 'Menu item added', `"${item.name}" was added to your menu`);
     res.status(201).json({ item });
   } catch (err) {
     next(err);
@@ -163,6 +166,7 @@ export async function updateMenuItem(req, res, next) {
       if (req.body[field] !== undefined) item[field] = req.body[field];
     }
     await item.save();
+    await notifySellerAccount(req.user._id, 'menu_updated', 'Menu item updated', `"${item.name}" was updated`);
     res.json({ item });
   } catch (err) {
     next(err);
@@ -174,6 +178,7 @@ export async function deleteMenuItem(req, res, next) {
     const restaurantId = requireOwnRestaurant(req);
     const item = await MenuItem.findOneAndDelete({ _id: req.params.id, restaurant: restaurantId });
     if (!item) throw new ApiError(404, 'Menu item not found');
+    await notifySellerAccount(req.user._id, 'menu_deleted', 'Menu item deleted', `"${item.name}" was removed from your menu`);
     res.json({ message: 'Menu item deleted' });
   } catch (err) {
     next(err);
@@ -282,6 +287,10 @@ export async function updateOrderStatus(req, res, next) {
     order.statusHistory.push({ status });
     await order.save();
     await notifyCustomerOrderStatus(order, status);
+    if (status === 'ready_for_pickup') {
+      const restaurant = await Restaurant.findById(restaurantId);
+      if (restaurant) await autoAssignDeliveryPartner(order, restaurant);
+    }
     res.json({ order });
   } catch (err) {
     next(err);
@@ -296,6 +305,7 @@ export async function bulkUpdateOrderStatus(req, res, next) {
     if (!ORDER_STATUSES.includes(status)) throw new ApiError(400, 'Invalid status');
 
     const orders = await Order.find({ _id: { $in: orderIds }, restaurant: restaurantId });
+    const restaurant = status === 'ready_for_pickup' ? await Restaurant.findById(restaurantId) : null;
     const updated = [];
     const skipped = [];
     for (const order of orders) {
@@ -308,6 +318,7 @@ export async function bulkUpdateOrderStatus(req, res, next) {
       order.statusHistory.push({ status });
       await order.save();
       await notifyCustomerOrderStatus(order, status);
+      if (status === 'ready_for_pickup' && restaurant) await autoAssignDeliveryPartner(order, restaurant);
       updated.push(order._id);
     }
     res.json({ updated, skipped });
@@ -327,6 +338,36 @@ export async function updateOrderNotes(req, res, next) {
     );
     if (!order) throw new ApiError(404, 'Order not found');
     res.json({ order });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function reportDeliveryIssue(req, res, next) {
+  try {
+    const restaurantId = requireOwnRestaurant(req);
+    const reason = String(req.body.reason ?? '').trim();
+    if (!reason) throw new ApiError(400, 'Describe the issue');
+
+    const order = await Order.findOne({ _id: req.params.id, restaurant: restaurantId });
+    if (!order) throw new ApiError(404, 'Order not found');
+
+    const issue = await DeliveryIssue.create({
+      order: order._id,
+      restaurant: restaurantId,
+      reportedBy: req.user._id,
+      partner: order.deliveryPartner,
+      reason,
+    });
+
+    await notifyAdmins(
+      'user_report',
+      'Delivery issue reported',
+      `${req.user.businessName} reported an issue with order #${order._id.toString().slice(-6)}: ${reason}`,
+      order._id
+    );
+
+    res.status(201).json({ issue });
   } catch (err) {
     next(err);
   }
@@ -371,6 +412,7 @@ export async function createMyCoupon(req, res, next) {
     }
 
     const coupon = await Coupon.create(payload);
+    await notifyAdmins('new_coupon_submitted', 'New coupon created', `${req.user.businessName} created coupon "${coupon.code}"`);
     res.status(201).json({ coupon });
   } catch (err) {
     next(err);

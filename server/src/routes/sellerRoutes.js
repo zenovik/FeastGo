@@ -3,6 +3,7 @@ import * as sellerAuth from '../controllers/sellerAuthController.js';
 import * as seller from '../controllers/sellerController.js';
 import * as analytics from '../controllers/sellerAnalyticsController.js';
 import * as notifications from '../controllers/notificationController.js';
+import { listSellerMessages, sendSellerMessage } from '../controllers/messageController.js';
 import { requireRole } from '../middleware/rbac.js';
 
 const router = Router();
@@ -35,6 +36,9 @@ router.get('/orders/:id', requireRole('seller'), seller.getOrderDetail);
 router.patch('/orders/:id/status', requireRole('seller'), seller.updateOrderStatus);
 router.patch('/orders/:id/notes', requireRole('seller'), seller.updateOrderNotes);
 router.post('/orders/bulk-status', requireRole('seller'), seller.bulkUpdateOrderStatus);
+router.get('/orders/:id/messages', requireRole('seller'), listSellerMessages);
+router.post('/orders/:id/messages', requireRole('seller'), sendSellerMessage);
+router.post('/orders/:id/report-issue', requireRole('seller'), seller.reportDeliveryIssue);
 
 // Coupons
 router.get('/coupons', requireRole('seller'), seller.listMyCoupons);
@@ -61,5 +65,10 @@ router.get('/reports/customers', requireRole('seller'), analytics.getCustomerIns
 router.get('/notifications', requireRole('seller'), notifications.listMyNotifications);
 router.patch('/notifications/:id/read', requireRole('seller'), notifications.markNotificationRead);
 router.patch('/notifications/read-all', requireRole('seller'), notifications.markAllNotificationsRead);
+router.patch('/notifications/bulk', requireRole('seller'), notifications.bulkNotificationAction);
+router.patch('/notifications/:id/archive', requireRole('seller'), notifications.archiveNotification);
+router.patch('/notifications/:id/restore', requireRole('seller'), notifications.restoreNotification);
+router.delete('/notifications/clear-all', requireRole('seller'), notifications.clearAllNotifications);
+router.delete('/notifications/:id', requireRole('seller'), notifications.deleteNotification);
 
 export default router;

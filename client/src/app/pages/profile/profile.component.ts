@@ -1,16 +1,18 @@
-import { Component, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Address, Gender, User } from '../../core/models/user.model';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
-import { validateImageFile } from '../../shared/utils/image-file';
+import { ImageUploadComponent } from '../../shared/components/image-upload/image-upload.component';
+import { MobileFieldComponent } from '../../shared/components/mobile-field/mobile-field.component';
+import { normalizeMobile, validateMobile } from '../../shared/utils/mobile-validation';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [FormsModule, IconComponent],
+  imports: [FormsModule, IconComponent, MobileFieldComponent, ImageUploadComponent],
   template: `
     <div class="container-shell max-w-xl py-10">
       <h1 class="font-display text-2xl font-bold text-ink-900">Your profile</h1>
@@ -18,18 +20,26 @@ import { validateImageFile } from '../../shared/utils/image-file';
       @if (auth.currentUser(); as u) {
         <div class="card-surface mt-6 flex items-start gap-4 p-5">
           <div class="relative shrink-0">
-            @if ((editingProfile() ? editPhoto : u.photo); as photoSrc) {
-              <img [src]="photoSrc" class="h-14 w-14 rounded-full object-cover" alt="Profile photo" />
-            } @else {
-              <span class="flex h-14 w-14 items-center justify-center rounded-full bg-ink-800 text-lg font-bold text-white">
-                {{ initials(u.name) }}
-              </span>
-            }
             @if (editingProfile()) {
-              <label class="absolute -bottom-1 -right-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-ink-900 text-white">
-                <app-icon name="camera" [size]="12" />
-                <input type="file" accept="image/*" class="hidden" (change)="onPhotoSelected($event)" />
-              </label>
+              <app-image-upload
+                #photoUpload
+                shape="circle"
+                size="sm"
+                [maxBytes]="2000000"
+                [value]="u.photo"
+                [uploading]="savingProfile()"
+                [progress]="photoProgress()"
+                (picked)="onPhotoPicked($event)"
+                (invalidFile)="toast.error($event)"
+              />
+            } @else {
+              @if (u.photo) {
+                <img [src]="u.photo" class="h-14 w-14 rounded-full object-cover" alt="Profile photo" />
+              } @else {
+                <span class="flex h-14 w-14 items-center justify-center rounded-full bg-ink-800 text-lg font-bold text-white">
+                  {{ initials(u.name) }}
+                </span>
+              }
             }
           </div>
           <div class="flex-1">
@@ -47,13 +57,9 @@ import { validateImageFile } from '../../shared/utils/image-file';
                 <input [(ngModel)]="editName" name="editName" placeholder="Name" required class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
 
                 <div class="flex items-center gap-2">
-                  <input
-                    type="tel"
-                    [(ngModel)]="editPhone"
-                    name="editPhone"
-                    placeholder="Phone number"
-                    class="w-full flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400"
-                  />
+                  <div class="flex-1">
+                    <app-mobile-field [value]="editPhone" (valueChange)="editPhone = $event" (validityChange)="phoneValid.set($event)" placeholder="Phone number" />
+                  </div>
                   @if (editPhone.trim() === u.phone) {
                     <span class="flex shrink-0 items-center gap-1 rounded-lg bg-basil-50 px-3 py-2 text-xs font-bold text-basil-600">
                       <app-icon name="shield-check" [size]="14" /> Verified
@@ -61,7 +67,8 @@ import { validateImageFile } from '../../shared/utils/image-file';
                   } @else {
                     <button
                       type="button"
-                      class="shrink-0 rounded-lg border border-ember-500 px-3 py-2 text-xs font-bold text-ember-600 hover:bg-ember-50"
+                      [disabled]="!phoneValid()"
+                      class="shrink-0 rounded-lg border border-ember-500 px-3 py-2 text-xs font-bold text-ember-600 hover:bg-ember-50 disabled:opacity-50"
                       (click)="verifyPhone()"
                     >
                       Verify
@@ -101,9 +108,13 @@ import { validateImageFile } from '../../shared/utils/image-file';
                       <p class="rounded-lg bg-ember-50 px-3 py-2 text-xs font-medium text-ember-700">{{ changeError() }}</p>
                     }
                     @if (changeDevOtp()) {
-                      <p class="rounded-lg bg-gold-400/15 px-3 py-2 text-xs font-medium text-gold-700">
-                        Demo mode — your code is <strong>{{ changeDevOtp() }}</strong>
-                      </p>
+                      <div class="flex items-center gap-3 rounded-xl border border-gold-300 bg-gold-50 px-4 py-3">
+                        <app-icon name="lock" [size]="18" class="shrink-0 text-gold-600" />
+                        <div>
+                          <p class="text-[11px] font-bold uppercase tracking-wide text-gold-700">Demo mode — your OTP</p>
+                          <p class="mt-0.5 text-2xl font-extrabold tracking-[0.35em] text-gold-800">{{ changeDevOtp() }}</p>
+                        </div>
+                      </div>
                     }
                     <div class="flex gap-2">
                       <input
@@ -141,8 +152,10 @@ import { validateImageFile } from '../../shared/utils/image-file';
                   <option value="other">Other</option>
                 </select>
                 <div class="flex gap-2">
-                  <button type="submit" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white">Save</button>
-                  <button type="button" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-500" (click)="cancelEditProfile()">Cancel</button>
+                  <button type="submit" [disabled]="savingProfile()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                    {{ savingProfile() ? 'Saving…' : 'Save' }}
+                  </button>
+                  <button type="button" [disabled]="savingProfile()" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-500" (click)="cancelEditProfile()">Cancel</button>
                 </div>
               </form>
             }
@@ -207,9 +220,14 @@ export class ProfileComponent {
   editingProfile = signal(false);
   editName = '';
   editPhone = '';
+  phoneValid = signal(true);
   editEmail = '';
   editGender: Gender | '' = '';
   editPhoto: string | null = null;
+  savingProfile = signal(false);
+  photoProgress = signal<number | null>(null);
+
+  @ViewChild('photoUpload') photoUpload?: ImageUploadComponent;
 
   changingField = signal<'phone' | 'email' | null>(null);
   changeCode = '';
@@ -220,7 +238,7 @@ export class ProfileComponent {
 
   constructor(
     public auth: AuthService,
-    private toast: ToastService,
+    public toast: ToastService,
     private router: Router
   ) {}
 
@@ -230,7 +248,8 @@ export class ProfileComponent {
 
   startEditProfile(u: User) {
     this.editName = u.name;
-    this.editPhone = u.phone;
+    this.editPhone = u.phone ?? '';
+    this.phoneValid.set(!!u.phone);
     this.editEmail = u.email ?? '';
     this.editGender = u.gender ?? '';
     this.editPhoto = u.photo;
@@ -246,12 +265,12 @@ export class ProfileComponent {
   }
 
   async verifyPhone() {
-    const value = this.editPhone.trim().replace(/[\s-]/g, '');
-    if (!/^\+?\d{7,15}$/.test(value)) {
-      this.toast.error('Enter a valid phone number');
+    const result = validateMobile(this.editPhone);
+    if (!result.valid) {
+      this.toast.error(result.message);
       return;
     }
-    await this.requestVerification('phone', value);
+    await this.requestVerification('phone', normalizeMobile(this.editPhone));
   }
 
   async verifyEmail() {
@@ -291,7 +310,8 @@ export class ProfileComponent {
     try {
       if (field === 'phone') {
         const updated = await this.auth.verifyPhoneChangeOtp(this.pendingChangeValue, this.changeCode.trim());
-        this.editPhone = updated.phone;
+        this.editPhone = updated.phone ?? '';
+        this.phoneValid.set(true);
       } else {
         const updated = await this.auth.verifyEmailChangeOtp(this.pendingChangeValue, this.changeCode.trim());
         this.editEmail = updated.email ?? '';
@@ -305,31 +325,33 @@ export class ProfileComponent {
     }
   }
 
-  onPhotoSelected(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    const error = validateImageFile(file, 2_000_000);
-    if (error) {
-      this.toast.error(error);
-      input.value = '';
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => (this.editPhoto = reader.result as string);
-    reader.readAsDataURL(file);
+  onPhotoPicked(e: { dataUrl: string; file: File }) {
+    this.editPhoto = e.dataUrl;
   }
 
   async saveProfile(e: Event) {
     e.preventDefault();
     if (!this.editName.trim()) return;
-    await this.auth.updateProfile({
-      name: this.editName.trim(),
-      gender: this.editGender || null,
-      photo: this.editPhoto,
-    });
-    this.editingProfile.set(false);
-    this.toast.success('Profile updated');
+    this.savingProfile.set(true);
+    this.photoProgress.set(0);
+    try {
+      await this.auth.updateProfile(
+        {
+          name: this.editName.trim(),
+          gender: this.editGender || null,
+          photo: this.editPhoto,
+        },
+        (pct) => this.photoProgress.set(pct)
+      );
+      this.editingProfile.set(false);
+      this.toast.success('Profile updated');
+    } catch (err: any) {
+      this.photoUpload?.discardPending();
+      this.toast.error(err?.error?.message ?? 'Could not update profile');
+    } finally {
+      this.savingProfile.set(false);
+      this.photoProgress.set(null);
+    }
   }
 
   async addAddress(e: Event) {

@@ -5,7 +5,7 @@ import { AdminBanner, AdminService } from '../../../core/services/admin.service'
 import { ToastService } from '../../../core/services/toast.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { AdminShellComponent } from '../../../shared/components/admin-shell/admin-shell.component';
-import { validateImageFile } from '../../../shared/utils/image-file';
+import { ImageUploadComponent } from '../../../shared/components/image-upload/image-upload.component';
 
 interface BannerForm {
   title: string;
@@ -22,7 +22,7 @@ const EMPTY_FORM = (): BannerForm => ({ title: '', image: '', link: '', placemen
 @Component({
   selector: 'app-admin-banners',
   standalone: true,
-  imports: [FormsModule, DatePipe, IconComponent, AdminShellComponent],
+  imports: [FormsModule, DatePipe, IconComponent, AdminShellComponent, ImageUploadComponent],
   template: `
     <app-admin-shell title="Banners">
       <div class="flex items-center justify-between">
@@ -36,12 +36,16 @@ const EMPTY_FORM = (): BannerForm => ({ title: '', image: '', link: '', placemen
         <form class="card-surface mt-4 space-y-3 p-4" (submit)="onSubmit($event)">
           <input [(ngModel)]="form.title" name="title" required placeholder="Banner title" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900" />
 
-          <div>
-            <input type="file" accept="image/*" (change)="onImagePick($event)" class="text-xs" />
-            @if (form.image) {
-              <img [src]="form.image" class="mt-2 h-24 w-full rounded-lg object-cover" />
-            }
-          </div>
+          <app-image-upload
+            shape="banner"
+            [maxBytes]="3000000"
+            [value]="form.image || null"
+            [uploading]="submitting()"
+            [progress]="imageProgress()"
+            (picked)="onImagePicked($event)"
+            (invalidFile)="toast.error($event)"
+            label="Upload banner image"
+          />
 
           <input [(ngModel)]="form.link" name="link" placeholder="Link (e.g. /restaurants)" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none dark:border-ink-700 dark:bg-ink-900" />
 
@@ -95,12 +99,13 @@ export class AdminBannersComponent implements OnInit {
   banners = signal<AdminBanner[]>([]);
   showForm = signal(false);
   submitting = signal(false);
+  imageProgress = signal<number | null>(null);
   editingId = signal<string | null>(null);
   form: BannerForm = EMPTY_FORM();
 
   constructor(
     private adminService: AdminService,
-    private toast: ToastService
+    public toast: ToastService
   ) {}
 
   async ngOnInit() {
@@ -132,25 +137,15 @@ export class AdminBannersComponent implements OnInit {
     this.showForm.set(true);
   }
 
-  onImagePick(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    const error = validateImageFile(file, 3_000_000);
-    if (error) {
-      this.toast.error(error);
-      input.value = '';
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => (this.form.image = reader.result as string);
-    reader.readAsDataURL(file);
+  onImagePicked(e: { dataUrl: string; file: File }) {
+    this.form.image = e.dataUrl;
   }
 
   async onSubmit(e: Event) {
     e.preventDefault();
     if (!this.form.title.trim()) return;
     this.submitting.set(true);
+    this.imageProgress.set(0);
     try {
       const payload = {
         title: this.form.title.trim(),
@@ -163,11 +158,11 @@ export class AdminBannersComponent implements OnInit {
       };
 
       if (this.editingId()) {
-        const res = await this.adminService.updateBanner(this.editingId()!, payload);
+        const res = await this.adminService.updateBanner(this.editingId()!, payload, (pct) => this.imageProgress.set(pct));
         this.banners.update((list) => list.map((b) => (b._id === res.banner._id ? res.banner : b)));
         this.toast.success('Banner updated');
       } else {
-        const res = await this.adminService.createBanner(payload);
+        const res = await this.adminService.createBanner(payload, (pct) => this.imageProgress.set(pct));
         this.banners.update((list) => [res.banner, ...list]);
         this.toast.success('Banner created');
       }
@@ -178,6 +173,7 @@ export class AdminBannersComponent implements OnInit {
       this.toast.error(err?.error?.message ?? 'Could not save banner');
     } finally {
       this.submitting.set(false);
+      this.imageProgress.set(null);
     }
   }
 

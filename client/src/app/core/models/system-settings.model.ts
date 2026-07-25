@@ -6,6 +6,8 @@ export interface SystemSettings {
   commissionPercent: number;
   defaultDeliveryFee: number;
   taxPercent: number;
+  maxReassignAttempts: number;
+  maxRejectionsBeforeFlag: number;
   paymentGateway: { provider: string; apiKey: string; enabled: boolean };
   email: { smtpHost: string; smtpPort: number; fromAddress: string; enabled: boolean };
   sms: { provider: string; apiKey: string; enabled: boolean };

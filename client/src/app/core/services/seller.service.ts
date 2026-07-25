@@ -1,11 +1,12 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
 import { MenuItem } from '../models/menu-item.model';
 import { Order, SellerOrderDetail } from '../models/order.model';
 import { Restaurant } from '../models/restaurant.model';
-import { AppNotification } from '../models/notification.model';
+import { OrderMessage } from '../models/message.model';
+import { requestWithProgress } from '../../shared/utils/http-progress';
 
 export interface SellerCoupon {
   _id: string;
@@ -71,10 +72,34 @@ export interface RevenueReport {
 
 @Injectable({ providedIn: 'root' })
 export class SellerService {
+  // Single shared source of truth for "the current seller's restaurant" —
+  // previously the dashboard, settings, and profile-card each held their own
+  // independent copy fetched separately, so an edit made through one could
+  // sit stale in another until that page's own next fetch. Every page now
+  // reads this signal and calls refreshRestaurant()/updateRestaurant() on it
+  // instead of keeping a local copy.
+  private readonly restaurantSig = signal<Restaurant | null>(null);
+  readonly restaurant = this.restaurantSig.asReadonly();
+
   constructor(private http: HttpClient) {}
 
-  updateRestaurant(payload: Partial<Restaurant>) {
-    return firstValueFrom(this.http.patch<{ restaurant: Restaurant }>(`${API_URL}/seller/restaurant`, payload));
+  async refreshRestaurant() {
+    const res = await firstValueFrom(this.http.get<{ restaurant: Restaurant | null }>(`${API_URL}/seller/restaurant`));
+    this.restaurantSig.set(res.restaurant);
+    return res.restaurant;
+  }
+
+  setRestaurant(restaurant: Restaurant | null) {
+    this.restaurantSig.set(restaurant);
+  }
+
+  async updateRestaurant(payload: Partial<Restaurant>, onProgress?: (pct: number) => void) {
+    const res = await requestWithProgress<{ restaurant: Restaurant }>(
+      this.http.patch<{ restaurant: Restaurant }>(`${API_URL}/seller/restaurant`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
+    this.restaurantSig.set(res.restaurant);
+    return res;
   }
 
   updateCategoryOrder(categoryOrder: string[]) {
@@ -87,12 +112,18 @@ export class SellerService {
     return firstValueFrom(this.http.get<{ items: MenuItem[] }>(`${API_URL}/seller/menu`));
   }
 
-  createMenuItem(payload: Partial<MenuItem>) {
-    return firstValueFrom(this.http.post<{ item: MenuItem }>(`${API_URL}/seller/menu`, payload));
+  createMenuItem(payload: Partial<MenuItem>, onProgress?: (pct: number) => void) {
+    return requestWithProgress<{ item: MenuItem }>(
+      this.http.post<{ item: MenuItem }>(`${API_URL}/seller/menu`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
   }
 
-  updateMenuItem(id: string, payload: Partial<MenuItem>) {
-    return firstValueFrom(this.http.patch<{ item: MenuItem }>(`${API_URL}/seller/menu/${id}`, payload));
+  updateMenuItem(id: string, payload: Partial<MenuItem>, onProgress?: (pct: number) => void) {
+    return requestWithProgress<{ item: MenuItem }>(
+      this.http.patch<{ item: MenuItem }>(`${API_URL}/seller/menu/${id}`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
   }
 
   deleteMenuItem(id: string) {
@@ -201,19 +232,16 @@ export class SellerService {
     );
   }
 
-  listNotifications(unreadOnly = false) {
-    const params: Record<string, string> = unreadOnly ? { unreadOnly: 'true' } : {};
-    return firstValueFrom(
-      this.http.get<{ notifications: AppNotification[]; unreadCount: number }>(`${API_URL}/seller/notifications`, { params })
-    );
+  listMessages(orderId: string) {
+    return firstValueFrom(this.http.get<{ messages: OrderMessage[] }>(`${API_URL}/seller/orders/${orderId}/messages`));
   }
 
-  markNotificationRead(id: string) {
-    return firstValueFrom(this.http.patch<{ notification: AppNotification }>(`${API_URL}/seller/notifications/${id}/read`, {}));
+  sendMessage(orderId: string, text: string) {
+    return firstValueFrom(this.http.post<{ message: OrderMessage }>(`${API_URL}/seller/orders/${orderId}/messages`, { text }));
   }
 
-  markAllNotificationsRead() {
-    return firstValueFrom(this.http.patch<{ message: string }>(`${API_URL}/seller/notifications/read-all`, {}));
+  reportDeliveryIssue(orderId: string, reason: string) {
+    return firstValueFrom(this.http.post<{ issue: unknown }>(`${API_URL}/seller/orders/${orderId}/report-issue`, { reason }));
   }
 
   changePassword(currentPassword: string, newPassword: string) {

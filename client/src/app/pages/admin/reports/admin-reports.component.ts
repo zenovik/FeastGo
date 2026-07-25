@@ -96,11 +96,23 @@ type Tab = 'sales' | 'customers' | 'restaurants' | 'sellers' | 'delivery' | 'rev
       }
 
       @if (tab() === 'delivery') {
-        <div class="card-surface mt-4 divide-y divide-ink-100 dark:divide-ink-700">
+        @if (deliveryAnalytics(); as da) {
+          <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div class="card-surface p-4"><p class="text-xs font-semibold uppercase text-ink-400">Failed deliveries</p><p class="mt-1 font-bold text-ember-600">{{ da.failedDeliveries }}</p></div>
+            <div class="card-surface p-4"><p class="text-xs font-semibold uppercase text-ink-400">Total delivery earnings</p><p class="mt-1 font-bold text-ink-900 dark:text-white">{{ da.totalDeliveryEarnings | inr }}</p></div>
+            <div class="card-surface p-4"><p class="text-xs font-semibold uppercase text-ink-400">Avg delivery time</p><p class="mt-1 font-bold text-ink-900 dark:text-white">{{ da.avgDeliveryMinutes }} min</p></div>
+            <div class="card-surface p-4"><p class="text-xs font-semibold uppercase text-ink-400">This month's deliveries</p><p class="mt-1 font-bold text-ink-900 dark:text-white">{{ latestMonthCount(da) }}</p></div>
+          </div>
+          <div class="card-surface mt-3 p-4 text-ember-500 dark:text-ember-400">
+            <p class="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Daily deliveries (last 14 days)</p>
+            <app-mini-chart [points]="dailyDeliveryPoints(da)" kind="bar" color="currentColor" [height]="140" />
+          </div>
+        }
+        <div class="card-surface mt-3 divide-y divide-ink-100 dark:divide-ink-700">
           @for (p of deliveryPartners(); track p.id) {
             <div class="flex items-center justify-between px-4 py-2.5 text-sm">
               <span class="font-semibold text-ink-800 dark:text-ink-200">{{ p.name }} <span class="h-2 w-2 inline-block rounded-full" [class.bg-basil-500]="p.isOnline" [class.bg-ink-200]="!p.isOnline"></span></span>
-              <span class="text-ink-500 dark:text-ink-400">{{ p.deliveries }} deliveries · {{ p.earnings | inr }}</span>
+              <span class="text-ink-500 dark:text-ink-400">⭐ {{ p.rating || '—' }} · {{ p.deliveries }} deliveries · {{ p.earnings | inr }}</span>
             </div>
           } @empty {
             <p class="px-4 py-6 text-center text-sm text-ink-400">No data yet.</p>
@@ -147,18 +159,20 @@ export class AdminReportsComponent implements OnInit {
   customers = signal<Awaited<ReturnType<AdminService['getCustomerReport']>> | null>(null);
   restaurants = signal<{ id: string; name: string; revenue: number; orders: number }[]>([]);
   sellers = signal<{ id: string; businessName: string; status: string; revenue: number; orders: number }[]>([]);
-  deliveryPartners = signal<{ id: string; name: string; status: string; isOnline: boolean; deliveries: number; earnings: number }[]>([]);
+  deliveryPartners = signal<{ id: string; name: string; status: string; isOnline: boolean; rating: number; deliveries: number; earnings: number }[]>([]);
+  deliveryAnalytics = signal<Awaited<ReturnType<AdminService['getDeliveryAnalytics']>> | null>(null);
   revenue = signal<Awaited<ReturnType<AdminService['getRevenueBreakdown']>> | null>(null);
 
   constructor(private adminService: AdminService) {}
 
   async ngOnInit() {
-    const [sales, customers, restaurants, sellers, delivery, revenue] = await Promise.all([
+    const [sales, customers, restaurants, sellers, delivery, deliveryAnalytics, revenue] = await Promise.all([
       this.adminService.getSalesReport(),
       this.adminService.getCustomerReport(),
       this.adminService.getRestaurantReport(),
       this.adminService.getSellerReport(),
       this.adminService.getDeliveryReport(),
+      this.adminService.getDeliveryAnalytics(),
       this.adminService.getRevenueBreakdown(),
     ]);
     this.sales.set(sales);
@@ -166,7 +180,16 @@ export class AdminReportsComponent implements OnInit {
     this.restaurants.set(restaurants.restaurants);
     this.sellers.set(sellers.sellers);
     this.deliveryPartners.set(delivery.partners);
+    this.deliveryAnalytics.set(deliveryAnalytics);
     this.revenue.set(revenue);
+  }
+
+  dailyDeliveryPoints(da: { dailyDeliveries: { date: string; count: number }[] }): ChartPoint[] {
+    return da.dailyDeliveries.map((d) => ({ label: d.date.slice(5), value: d.count }));
+  }
+
+  latestMonthCount(da: { monthlyDeliveries: { month: string; count: number }[] }): number {
+    return da.monthlyDeliveries.at(-1)?.count ?? 0;
   }
 
   async loadSales() {

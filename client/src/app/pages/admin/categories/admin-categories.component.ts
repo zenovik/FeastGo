@@ -1,47 +1,56 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, QueryList, ViewChild, ViewChildren, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AdminCategory, AdminService } from '../../../core/services/admin.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { AdminShellComponent } from '../../../shared/components/admin-shell/admin-shell.component';
-import { validateImageFile, readImageFileAsDataUrl } from '../../../shared/utils/image-file';
+import { ImageUploadComponent } from '../../../shared/components/image-upload/image-upload.component';
 
 @Component({
   selector: 'app-admin-categories',
   standalone: true,
-  imports: [FormsModule, DragDropModule, IconComponent, AdminShellComponent],
+  imports: [FormsModule, DragDropModule, IconComponent, AdminShellComponent, ImageUploadComponent],
   template: `
     <app-admin-shell title="Categories">
       <form class="card-surface flex flex-wrap items-center gap-2 p-4" (submit)="onCreate($event)">
-        <label class="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-ink-200 text-ink-400 hover:border-ember-400 dark:border-ink-700">
-          @if (image) {
-            <img [src]="image" alt="" class="h-full w-full object-cover" />
-          } @else {
-            <app-icon name="camera" [size]="16" />
-          }
-          <input type="file" accept="image/*" class="hidden" (change)="onImagePick($event)" />
-        </label>
+        <app-image-upload
+          #createUpload
+          shape="square"
+          size="sm"
+          [maxBytes]="2000000"
+          [value]="image || null"
+          [uploading]="creating()"
+          [progress]="createProgress()"
+          (picked)="onCreateImagePicked($event)"
+          (invalidFile)="toast.error($event)"
+          label=""
+        />
         <input [(ngModel)]="name" name="name" required placeholder="Category name" class="flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
-        <button type="submit" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white">Add</button>
+        <button type="submit" [disabled]="!name.trim() || !image || creating()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
+          {{ creating() ? 'Adding…' : 'Add' }}
+        </button>
       </form>
-
-      <p class="mt-2 text-xs text-ink-400">Drag to reorder how categories appear to customers.</p>
+      <p class="mt-2 text-xs text-ink-400">Name and an image are both required to add a category. Drag to reorder how categories appear to customers.</p>
 
       <div class="mt-3 space-y-2" cdkDropList (cdkDropListDropped)="drop($event)">
-        @for (category of categories(); track category._id) {
+        @for (category of categories(); track category._id; let i = $index) {
           <div class="card-surface flex items-center gap-3 p-3.5" cdkDrag>
             <span class="cursor-grab text-ink-300" cdkDragHandle>
               <app-icon name="grip" [size]="16" />
             </span>
-            <label class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-ink-100 text-ink-400 hover:opacity-80 dark:bg-ink-700">
-              @if (category.image) {
-                <img [src]="category.image" alt="" class="h-full w-full object-cover" />
-              } @else {
-                <app-icon name="image" [size]="15" />
-              }
-              <input type="file" accept="image/*" class="hidden" (change)="onImageReplace($event, category)" />
-            </label>
+            <app-image-upload
+              #rowUpload
+              shape="square"
+              size="sm"
+              [maxBytes]="2000000"
+              [value]="category.image || null"
+              [uploading]="replacingId() === category._id"
+              [progress]="replacingId() === category._id ? replaceProgress() : null"
+              (picked)="onImageReplace($event, category, i)"
+              (invalidFile)="toast.error($event)"
+              label=""
+            />
             <p class="flex-1 text-sm font-semibold text-ink-900 dark:text-white">{{ category.name }}</p>
             <label class="flex items-center gap-1.5 text-xs font-semibold text-ink-500 dark:text-ink-400">
               <input type="checkbox" [checked]="category.isActive" (change)="toggleActive(category)" /> Active
@@ -61,10 +70,17 @@ export class AdminCategoriesComponent implements OnInit {
   categories = signal<AdminCategory[]>([]);
   name = '';
   image = '';
+  creating = signal(false);
+  createProgress = signal<number | null>(null);
+  replacingId = signal<string | null>(null);
+  replaceProgress = signal<number | null>(null);
+
+  @ViewChild('createUpload') createUpload?: ImageUploadComponent;
+  @ViewChildren('rowUpload') rowUploads!: QueryList<ImageUploadComponent>;
 
   constructor(
     private adminService: AdminService,
-    private toast: ToastService
+    public toast: ToastService
   ) {}
 
   async ngOnInit() {
@@ -72,41 +88,50 @@ export class AdminCategoriesComponent implements OnInit {
     this.categories.set(res.categories);
   }
 
-  async onImagePick(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    const error = validateImageFile(file, 2_000_000);
-    if (error) {
-      this.toast.error(error);
-      return;
-    }
-    this.image = await readImageFileAsDataUrl(file);
+  onCreateImagePicked(e: { dataUrl: string; file: File }) {
+    this.image = e.dataUrl;
   }
 
-  async onImageReplace(e: Event, category: AdminCategory) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    const error = validateImageFile(file, 2_000_000);
-    if (error) {
-      this.toast.error(error);
-      input.value = '';
-      return;
+  async onImageReplace(e: { dataUrl: string; file: File }, category: AdminCategory, index: number) {
+    this.replacingId.set(category._id);
+    this.replaceProgress.set(0);
+    try {
+      const res = await this.adminService.updateCategory(category._id, { image: e.dataUrl }, (pct) => this.replaceProgress.set(pct));
+      this.categories.update((list) => list.map((c) => (c._id === category._id ? res.category : c)));
+      this.toast.success('Category image updated');
+    } catch (err: any) {
+      this.rowUploads.get(index)?.discardPending();
+      this.toast.error(err?.error?.message ?? 'Could not update category image');
+    } finally {
+      this.replacingId.set(null);
+      this.replaceProgress.set(null);
     }
-    const image = await readImageFileAsDataUrl(file);
-    const res = await this.adminService.updateCategory(category._id, { image });
-    this.categories.update((list) => list.map((c) => (c._id === category._id ? res.category : c)));
-    this.toast.success('Category image updated');
   }
 
   async onCreate(e: Event) {
     e.preventDefault();
-    if (!this.name.trim()) return;
-    const res = await this.adminService.createCategory({ name: this.name.trim(), image: this.image || undefined });
-    this.categories.update((categories) => [...categories, res.category]);
-    this.name = '';
-    this.image = '';
-    this.toast.success('Category added');
+    if (!this.name.trim()) {
+      this.toast.error('Category name is required');
+      return;
+    }
+    if (!this.image) {
+      this.toast.error('Category image is required');
+      return;
+    }
+    this.creating.set(true);
+    this.createProgress.set(0);
+    try {
+      const res = await this.adminService.createCategory({ name: this.name.trim(), image: this.image }, (pct) => this.createProgress.set(pct));
+      this.categories.update((categories) => [...categories, res.category]);
+      this.name = '';
+      this.image = '';
+      this.toast.success('Category added');
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? 'Could not add category');
+    } finally {
+      this.creating.set(false);
+      this.createProgress.set(null);
+    }
   }
 
   async toggleActive(category: AdminCategory) {

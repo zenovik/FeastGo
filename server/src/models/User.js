@@ -18,8 +18,14 @@ const addressSchema = new mongoose.Schema(
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    phone: { type: String, required: true, unique: true, trim: true },
-    email: { type: String, trim: true, lowercase: true, default: null },
+    // Either phone or email verifies identity at signup — the other is
+    // optional and can be added later from the profile page. Neither field
+    // has a `default`, deliberately: a sparse unique index only excludes
+    // documents where the field is genuinely absent, not ones storing an
+    // explicit null (see the same lesson learned on Notification.dedupeKey).
+    phone: { type: String, unique: true, sparse: true, trim: true },
+    email: { type: String, unique: true, sparse: true, trim: true, lowercase: true },
+    termsAcceptedAt: { type: Date, default: null },
     gender: { type: String, enum: ['male', 'female', 'other', null], default: null },
     photo: { type: String, default: null },
     location: {

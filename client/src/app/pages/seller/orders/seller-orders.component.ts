@@ -2,8 +2,11 @@ import { DatePipe, UpperCasePipe } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Order, SellerOrderDetail } from '../../../core/models/order.model';
+import { OrderMessage } from '../../../core/models/message.model';
 import { SellerService } from '../../../core/services/seller.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { RealtimeService } from '../../../core/services/realtime.service';
+import { ChatPanelComponent } from '../../../shared/components/chat-panel/chat-panel.component';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SellerShellComponent } from '../../../shared/components/seller-shell/seller-shell.component';
 import { InrPipe } from '../../../shared/pipes/inr.pipe';
@@ -31,7 +34,7 @@ const TIMELINE_STEPS = [
 @Component({
   selector: 'app-seller-orders',
   standalone: true,
-  imports: [FormsModule, DatePipe, UpperCasePipe, IconComponent, SellerShellComponent, InrPipe],
+  imports: [FormsModule, DatePipe, UpperCasePipe, IconComponent, SellerShellComponent, InrPipe, ChatPanelComponent],
   template: `
     <app-seller-shell title="Orders">
       <!-- Search + filters -->
@@ -161,8 +164,44 @@ const TIMELINE_STEPS = [
                         @if (d.deliveryPartner) {
                           <div>
                             <h4 class="text-xs font-bold uppercase tracking-wide text-ink-400">Delivery partner</h4>
-                            <p class="mt-1 text-sm font-semibold text-ink-900 dark:text-white">{{ d.deliveryPartner.name }}</p>
-                            <p class="text-xs text-ink-400">{{ d.deliveryPartner.phone }} · {{ d.deliveryPartner.vehicleType }}</p>
+                            <div class="mt-1 flex items-center justify-between">
+                              <div>
+                                <p class="text-sm font-semibold text-ink-900 dark:text-white">{{ d.deliveryPartner.name }}</p>
+                                <p class="text-xs capitalize text-ink-400">{{ d.deliveryPartner.vehicleType }} · {{ d.deliveryStatus.replaceAll('_', ' ') }}</p>
+                              </div>
+                              <div class="flex gap-1.5">
+                                <a [href]="'tel:' + d.deliveryPartner.phone" class="flex items-center gap-1 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-bold text-ink-700 dark:border-ink-700 dark:text-ink-200">
+                                  <app-icon name="phone" [size]="13" /> Call
+                                </a>
+                                <button type="button" class="flex items-center gap-1 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-bold text-ink-700 dark:border-ink-700 dark:text-ink-200" (click)="openChat(d)">
+                                  <app-icon name="mail" [size]="13" /> Chat
+                                </button>
+                              </div>
+                            </div>
+                            @if (d.pickedUpAt) {
+                              <p class="mt-1 text-xs text-ink-400">Picked up {{ d.pickedUpAt | date: 'h:mm a' }}</p>
+                            }
+
+                            @if (reportingIssueFor() === d._id) {
+                              <div class="mt-2 rounded-lg border border-ember-200 p-2.5">
+                                <textarea [(ngModel)]="issueReason" rows="2" placeholder="Describe the delivery issue…" class="w-full rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900"></textarea>
+                                <div class="mt-1.5 flex gap-2">
+                                  <button type="button" [disabled]="!issueReason.trim() || submittingIssue()" class="rounded-lg bg-ember-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50" (click)="submitIssue(d)">
+                                    {{ submittingIssue() ? 'Reporting…' : 'Submit' }}
+                                  </button>
+                                  <button type="button" class="text-xs font-semibold text-ink-400" (click)="reportingIssueFor.set(null)">Cancel</button>
+                                </div>
+                              </div>
+                            } @else {
+                              <button type="button" class="mt-2 flex items-center gap-1 text-xs font-bold text-ember-600" (click)="reportingIssueFor.set(d._id); issueReason = ''">
+                                <app-icon name="alert-triangle" [size]="13" /> Report delivery issue
+                              </button>
+                            }
+                          </div>
+                        } @else {
+                          <div>
+                            <h4 class="text-xs font-bold uppercase tracking-wide text-ink-400">Delivery partner</h4>
+                            <p class="mt-1 text-sm text-ink-400">Not yet assigned</p>
                           </div>
                         }
                       </div>
@@ -196,6 +235,12 @@ const TIMELINE_STEPS = [
         }
       </div>
     </app-seller-shell>
+
+    @if (chatOpen()) {
+      <div class="fixed bottom-4 right-4 z-50">
+        <app-chat-panel title="Chat with rider" [messages]="chatMessages()" myRole="seller" (sendMessage)="sendChat($event)" (closed)="chatOpen.set(false)" />
+      </div>
+    }
 
     <!-- Printable invoice (hidden on screen, shown only in print) -->
     @if (detail(); as d) {
@@ -233,15 +278,49 @@ export class SellerOrdersComponent implements OnInit {
   detailLoading = signal(false);
   notesDraft = '';
 
+  reportingIssueFor = signal<string | null>(null);
+  issueReason = '';
+  submittingIssue = signal(false);
+
+  chatOpen = signal(false);
+  chatMessages = signal<OrderMessage[]>([]);
+  private chatOrderId: string | null = null;
+
   private searchTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     private sellerService: SellerService,
-    private toast: ToastService
+    private toast: ToastService,
+    private realtime: RealtimeService
   ) {}
+
+  private refreshTimer?: ReturnType<typeof setTimeout>;
 
   async ngOnInit() {
     await this.fetch();
+    this.realtime.on<OrderMessage>('message:new', (m) => {
+      if (m.order === this.chatOrderId) {
+        this.chatMessages.update((msgs) => [...msgs, m]);
+      }
+    });
+    // Order-related notifications (new order, rider assigned/reached/picked up,
+    // customer cancellation, …) all carry relatedOrder — refetch on any of
+    // them instead of maintaining a type whitelist that drifts out of sync.
+    this.realtime.on<{ relatedOrder?: string | null }>('notification:new', (n) => {
+      if (!n.relatedOrder) return;
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = setTimeout(() => {
+        this.fetch();
+        if (this.expandedId() === n.relatedOrder) this.refreshExpandedDetail();
+      }, 400);
+    });
+  }
+
+  private async refreshExpandedDetail() {
+    const id = this.expandedId();
+    if (!id) return;
+    const res = await this.sellerService.getOrderDetail(id);
+    this.detail.set(res.order);
   }
 
   scheduleFetch() {
@@ -345,5 +424,42 @@ export class SellerOrdersComponent implements OnInit {
 
   printInvoice(_d: SellerOrderDetail) {
     window.print();
+  }
+
+  async submitIssue(d: SellerOrderDetail) {
+    const reason = this.issueReason.trim();
+    if (!reason) return;
+    this.submittingIssue.set(true);
+    try {
+      await this.sellerService.reportDeliveryIssue(d._id, reason);
+      this.toast.success('Issue reported to admin');
+      this.reportingIssueFor.set(null);
+      this.issueReason = '';
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? 'Could not report issue');
+    } finally {
+      this.submittingIssue.set(false);
+    }
+  }
+
+  async openChat(d: SellerOrderDetail) {
+    this.chatOrderId = d._id;
+    this.chatOpen.set(true);
+    try {
+      const { messages } = await this.sellerService.listMessages(d._id);
+      this.chatMessages.set(messages);
+    } catch {
+      // keep whatever we have
+    }
+  }
+
+  async sendChat(text: string) {
+    if (!this.chatOrderId) return;
+    try {
+      const { message } = await this.sellerService.sendMessage(this.chatOrderId, text);
+      this.chatMessages.update((msgs) => [...msgs, message]);
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? 'Could not send message');
+    }
   }
 }

@@ -136,6 +136,12 @@ export const routes: Routes = [
     title: 'Delivery signup — FeastGo',
   },
   {
+    path: 'delivery/forgot-password',
+    loadComponent: () =>
+      import('./pages/delivery/forgot-password/delivery-forgot-password.component').then((m) => m.DeliveryForgotPasswordComponent),
+    title: 'Reset password — FeastGo',
+  },
+  {
     path: 'delivery/dashboard',
     loadComponent: () =>
       import('./pages/delivery/dashboard/delivery-dashboard.component').then((m) => m.DeliveryDashboardComponent),

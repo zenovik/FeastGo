@@ -3,6 +3,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
 import { DeliveryAccount } from '../models/role-account.model';
+import { requestWithProgress } from '../../shared/utils/http-progress';
 
 const TOKEN_KEY = 'feastgo_delivery_token';
 
@@ -40,9 +41,47 @@ export class DeliveryAuthService {
     }
   }
 
-  async signup(payload: { name: string; email: string; phone: string; password: string; vehicleType: string }) {
+  async requestOtp(phone: string) {
+    return firstValueFrom(this.http.post<{ message: string; devOtp: string }>(`${API_URL}/delivery/auth/request-otp`, { phone }));
+  }
+
+  async verifyOtp(phone: string, code: string) {
+    return firstValueFrom(this.http.post<{ verified: boolean }>(`${API_URL}/delivery/auth/verify-otp`, { phone, code }));
+  }
+
+  async signup(payload: { name: string; email: string; phone: string; password: string; vehicleType: string; vehicleNumber?: string }) {
     const res = await firstValueFrom(this.http.post<DeliveryAuthResponse>(`${API_URL}/delivery/auth/signup`, payload));
     this.persist(res);
+    return res.user;
+  }
+
+  async requestPasswordReset(email: string) {
+    return firstValueFrom(this.http.post<{ message: string; devOtp: string }>(`${API_URL}/delivery/auth/forgot-password/request`, { email }));
+  }
+
+  async resetPassword(email: string, code: string, newPassword: string) {
+    return firstValueFrom(this.http.post<{ message: string }>(`${API_URL}/delivery/auth/forgot-password/reset`, { email, code, newPassword }));
+  }
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    return firstValueFrom(this.http.post<{ message: string }>(`${API_URL}/delivery/auth/change-password`, { currentPassword, newPassword }));
+  }
+
+  async updateProfile(payload: Partial<DeliveryAccount>, onProgress?: (pct: number) => void) {
+    const res = await requestWithProgress<{ user: DeliveryAccount }>(
+      this.http.patch<{ user: DeliveryAccount }>(`${API_URL}/delivery/auth/profile`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  async updateDocuments(payload: Partial<DeliveryAccount['documents']>, onProgress?: (pct: number) => void) {
+    const res = await requestWithProgress<{ user: DeliveryAccount }>(
+      this.http.patch<{ user: DeliveryAccount }>(`${API_URL}/delivery/auth/documents`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
+    this.currentUserSig.set(res.user);
     return res.user;
   }
 

@@ -24,6 +24,7 @@ router.get('/reports/customers', adminOnly, analytics.getCustomerReport);
 router.get('/reports/restaurants', adminOnly, analytics.getRestaurantReport);
 router.get('/reports/sellers', adminOnly, analytics.getSellerReport);
 router.get('/reports/delivery', adminOnly, analytics.getDeliveryReport);
+router.get('/reports/delivery-analytics', adminOnly, analytics.getDeliveryAnalytics);
 router.get('/reports/revenue-breakdown', adminOnly, analytics.getRevenueBreakdown);
 
 // Users
@@ -45,6 +46,9 @@ router.get('/delivery-partners', adminOnly, admin.listDeliveryPartners);
 router.patch('/delivery-partners/:id/status', adminOnly, admin.setDeliveryPartnerStatus);
 router.patch('/delivery-partners/:id/suspend', adminOnly, admin.setDeliveryPartnerSuspension);
 router.get('/delivery-partners/:id/performance', adminOnly, admin.getDeliveryPerformance);
+router.get('/deliveries/live', adminOnly, admin.listLiveDeliveries);
+router.get('/delivery-issues', adminOnly, admin.listDeliveryIssues);
+router.patch('/delivery-issues/:id/resolve', adminOnly, admin.resolveDeliveryIssue);
 
 // Restaurants
 router.get('/restaurants', adminOnly, admin.listRestaurantsAdmin);
@@ -97,7 +101,13 @@ router.delete('/banners/:id', adminOnly, admin.deleteBanner);
 router.get('/notifications', adminOnly, notifications.listMyNotifications);
 router.patch('/notifications/:id/read', adminOnly, notifications.markNotificationRead);
 router.patch('/notifications/read-all', adminOnly, notifications.markAllNotificationsRead);
+router.patch('/notifications/bulk', adminOnly, notifications.bulkNotificationAction);
+router.patch('/notifications/:id/archive', adminOnly, notifications.archiveNotification);
+router.patch('/notifications/:id/restore', adminOnly, notifications.restoreNotification);
+router.delete('/notifications/clear-all', adminOnly, notifications.clearAllNotifications);
+router.delete('/notifications/:id', adminOnly, notifications.deleteNotification);
 router.post('/notifications/broadcast', adminOnly, notifications.broadcastNotification);
+router.get('/notifications/search-recipients', adminOnly, notifications.searchRecipients);
 
 // System settings
 router.get('/settings', adminOnly, settings.getSettings);

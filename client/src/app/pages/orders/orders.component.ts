@@ -15,6 +15,8 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   out_for_delivery: 'Out for delivery',
   delivered: 'Delivered',
   cancelled: 'Cancelled',
+  failed: 'Delivery failed',
+  returned: 'Returned to restaurant',
 };
 
 @Component({

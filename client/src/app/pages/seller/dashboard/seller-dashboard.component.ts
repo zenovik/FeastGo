@@ -5,7 +5,6 @@ import { RouterLink } from '@angular/router';
 import { SellerAuthService } from '../../../core/services/seller-auth.service';
 import { DashboardStats, SellerService } from '../../../core/services/seller.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { Restaurant } from '../../../core/models/restaurant.model';
 import { Order } from '../../../core/models/order.model';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SellerShellComponent } from '../../../shared/components/seller-shell/seller-shell.component';
@@ -86,7 +85,7 @@ interface StatCard {
             class="mb-5 block"
             [restaurant]="restaurant()!"
             [owner]="owner"
-            (restaurantChange)="restaurant.set($event)"
+            (restaurantChange)="sellerService.setRestaurant($event)"
           />
 
           @if (statsLoading()) {
@@ -185,7 +184,6 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
   statsLoading = signal(true);
   submitting = signal(false);
   formError = signal<string | null>(null);
-  restaurant = signal<Restaurant | null>(null);
   stats = signal<DashboardStats | null>(null);
 
   form = { name: '', coverImage: '', cuisines: '', line1: '', city: '' };
@@ -194,17 +192,20 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
 
   constructor(
     public auth: SellerAuthService,
-    private sellerService: SellerService,
+    public sellerService: SellerService,
     private toast: ToastService
   ) {}
+
+  get restaurant() {
+    return this.sellerService.restaurant;
+  }
 
   async ngOnInit() {
     if (this.auth.currentUser()?.isSuspended) return;
     this.loading.set(true);
     try {
-      const res = await this.auth.getMyRestaurant();
-      this.restaurant.set(res.restaurant);
-      if (res.restaurant) {
+      const restaurant = await this.sellerService.refreshRestaurant();
+      if (restaurant) {
         this.loadStats();
       }
     } finally {
@@ -223,8 +224,7 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
         return;
       }
       await this.auth.refreshMe();
-      const res = await this.auth.getMyRestaurant();
-      this.restaurant.set(res.restaurant);
+      await this.sellerService.refreshRestaurant();
     }, 15000);
   }
 
@@ -281,7 +281,7 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
           .filter(Boolean),
         address: { line1: this.form.line1.trim(), city: this.form.city.trim() } as any,
       });
-      this.restaurant.set(restaurant);
+      this.sellerService.setRestaurant(restaurant);
       this.toast.success('Restaurant registered — awaiting admin approval');
       this.loadStats();
     } catch (err: any) {

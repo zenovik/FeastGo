@@ -8,6 +8,8 @@ const SETTINGS_FIELDS = [
   'commissionPercent',
   'defaultDeliveryFee',
   'taxPercent',
+  'maxReassignAttempts',
+  'maxRejectionsBeforeFlag',
   'paymentGateway',
   'email',
   'sms',

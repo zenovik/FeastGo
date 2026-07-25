@@ -3,6 +3,8 @@ import RestaurantOwner from '../models/RestaurantOwner.js';
 import Restaurant from '../models/Restaurant.js';
 import { signToken } from '../utils/token.js';
 import { ApiError } from '../utils/ApiError.js';
+import { assertValidMobile, assertMobileNotTaken } from '../utils/mobileValidation.js';
+import { createNotification, notifySellerAccount, notifyAdmins } from '../utils/notify.js';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -26,19 +28,27 @@ export async function signup(req, res, next) {
     const name = String(req.body.name ?? '').trim();
     const businessName = String(req.body.businessName ?? '').trim();
     const email = String(req.body.email ?? '').trim().toLowerCase();
-    const phone = String(req.body.phone ?? '').trim();
+    const phone = assertValidMobile(req.body.phone);
     const password = String(req.body.password ?? '');
 
     if (!name || !businessName) throw new ApiError(400, 'Name and business name are required');
     if (!isValidEmail(email)) throw new ApiError(400, 'Enter a valid email address');
-    if (!/^\d{10}$/.test(phone)) throw new ApiError(400, 'Enter a valid 10-digit phone number');
     if (password.length < 6) throw new ApiError(400, 'Password must be at least 6 characters');
 
     const existing = await RestaurantOwner.findOne({ email });
     if (existing) throw new ApiError(409, 'An account with this email already exists');
+    await assertMobileNotTaken(RestaurantOwner, phone);
 
     const passwordHash = await bcrypt.hash(password, 10);
     const owner = await RestaurantOwner.create({ name, businessName, email, phone, passwordHash });
+    await createNotification({
+      recipientId: owner._id,
+      recipientRole: 'seller',
+      type: 'welcome',
+      title: 'Welcome to FeastGo!',
+      message: `Hi ${owner.name.split(' ')[0]}, your seller account for "${owner.businessName}" is set up. Register your restaurant to start receiving orders.`,
+    });
+    await notifyAdmins('new_seller_registration', 'New seller registered', `${owner.businessName} (${owner.email}) signed up and is awaiting review`);
     respondWithToken(res, owner, 201);
   } catch (err) {
     next(err);
@@ -96,22 +106,25 @@ export async function updateMyProfile(req, res, next) {
     if (!owner) throw new ApiError(404, 'Account not found');
 
     const name = req.body.name !== undefined ? String(req.body.name).trim() : owner.name;
-    const phone = req.body.phone !== undefined ? String(req.body.phone).trim() : owner.phone;
+    const phone = req.body.phone !== undefined ? assertValidMobile(req.body.phone) : owner.phone;
     const email = req.body.email !== undefined ? String(req.body.email).trim().toLowerCase() : owner.email;
 
     if (!name) throw new ApiError(400, 'Owner name is required');
     if (!isValidEmail(email)) throw new ApiError(400, 'Enter a valid email address');
-    if (!/^\+?\d{7,15}$/.test(phone)) throw new ApiError(400, 'Enter a valid phone number');
 
     if (email !== owner.email) {
       const existing = await RestaurantOwner.findOne({ email, _id: { $ne: owner._id } });
       if (existing) throw new ApiError(409, 'An account with this email already exists');
+    }
+    if (phone !== owner.phone) {
+      await assertMobileNotTaken(RestaurantOwner, phone, owner._id);
     }
 
     owner.name = name;
     owner.phone = phone;
     owner.email = email;
     await owner.save();
+    await notifySellerAccount(owner._id, 'profile_updated', 'Profile updated', 'Your account details have been saved.');
     res.json({ user: owner.toSafeObject() });
   } catch (err) {
     next(err);
@@ -153,6 +166,10 @@ export async function registerRestaurant(req, res, next) {
 
     req.user.restaurant = restaurant._id;
     await req.user.save();
+
+    if (!preApproved) {
+      await notifyAdmins('restaurant_approval_request', 'Restaurant awaiting approval', `${restaurant.name} (${req.user.businessName}) submitted for review`, null);
+    }
 
     res.status(201).json({ restaurant });
   } catch (err) {

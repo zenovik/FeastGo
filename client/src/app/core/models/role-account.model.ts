@@ -13,17 +13,48 @@ export interface SellerAccount {
   createdAt: string;
 }
 
+export interface DeliveryDocuments {
+  license: string;
+  aadhaar: string;
+  pan: string;
+  rc: string;
+}
+
+export interface DeliveryBankDetails {
+  accountHolder: string;
+  accountNumber: string;
+  ifsc: string;
+  upiId: string;
+}
+
+export interface DeliveryEmergencyContact {
+  name: string;
+  phone: string;
+}
+
 export interface DeliveryAccount {
   id: string;
   name: string;
   email: string;
   phone: string;
+  photo: string;
   vehicleType: 'bike' | 'scooter' | 'bicycle' | 'car';
   vehicleNumber: string;
+  documents: DeliveryDocuments;
+  documentsSubmitted: boolean;
+  bankDetails: DeliveryBankDetails;
+  emergencyContact: DeliveryEmergencyContact;
   status: AccountStatus;
+  rejectionReason: string;
   isOnline: boolean;
   isSuspended?: boolean;
+  phoneVerified: boolean;
+  orderRejectionCount: number;
+  flaggedForReview: boolean;
+  rating: { average: number; count: number };
+  currentOrder: string | null;
   location: { lat: number | null; lng: number | null };
+  lastLocationAt: string | null;
   role: 'delivery';
   createdAt: string;
 }

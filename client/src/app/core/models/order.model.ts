@@ -8,7 +8,41 @@ export type OrderStatus =
   | 'ready_for_pickup'
   | 'out_for_delivery'
   | 'delivered'
-  | 'cancelled';
+  | 'cancelled'
+  | 'failed'
+  | 'returned';
+
+export type DeliveryStatus =
+  | 'pending'
+  | 'searching'
+  | 'assigned'
+  | 'accepted'
+  | 'reached_restaurant'
+  | 'picked_up'
+  | 'out_for_delivery'
+  | 'reached_customer'
+  | 'delivered'
+  | 'cancelled'
+  | 'failed'
+  | 'returned';
+
+export interface DeliveryStatusHistoryEntry {
+  status: DeliveryStatus;
+  at: string;
+}
+
+// Populated shape of `Order.deliveryPartner` on the customer-facing order-detail
+// endpoint — everywhere else it's just the bare id string.
+export interface OrderDeliveryPartnerSummary {
+  _id: string;
+  name: string;
+  phone: string;
+  photo?: string;
+  vehicleType: string;
+  vehicleNumber: string;
+  location: { lat: number | null; lng: number | null };
+  rating: { average: number; count: number };
+}
 
 export interface OrderItem {
   menuItem: string;
@@ -28,7 +62,7 @@ export interface Order {
   user: string;
   restaurant: string;
   restaurantName: string;
-  deliveryPartner?: string | null;
+  deliveryPartner?: string | OrderDeliveryPartnerSummary | null;
   items: OrderItem[];
   subtotal: number;
   deliveryFee: number;
@@ -45,6 +79,17 @@ export interface Order {
   refundStatus?: 'none' | 'requested' | 'approved' | 'rejected' | 'refunded';
   refundAmount?: number;
   refundReason?: string;
+  tip?: number;
+  deliveryStatus: DeliveryStatus;
+  deliveryStatusHistory: DeliveryStatusHistoryEntry[];
+  deliveryOtp?: string | null;
+  deliveryOtpVerified?: boolean;
+  deliveryProofImage?: string;
+  deliveryFailReason?: string;
+  reassignCount?: number;
+  pickedUpAt?: string | null;
+  reachedCustomerAt?: string | null;
+  deliveredAt?: string | null;
   /** Only present on seller/admin-facing endpoints (order list, dashboard recent orders). */
   customerName?: string;
   createdAt: string;
@@ -55,4 +100,10 @@ export interface Order {
 export interface SellerOrderDetail extends Omit<Order, 'user' | 'deliveryPartner'> {
   user: { _id: string; name: string; phone: string; email: string | null };
   deliveryPartner: { _id: string; name: string; phone: string; vehicleType: string; vehicleNumber: string } | null;
+}
+
+// Shape returned by the delivery partner order-detail endpoint.
+export interface DeliveryOrderDetail extends Omit<Order, 'user' | 'restaurant'> {
+  user: { _id: string; name: string; phone: string };
+  restaurant: { _id: string; name: string; address: Address; location: { lat: number; lng: number } };
 }

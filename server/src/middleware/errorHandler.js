@@ -1,3 +1,18 @@
+import { notifyAdmins } from '../utils/notify.js';
+
+// Throttles repeated identical 5xx messages so one flaky endpoint under load
+// doesn't flood the admin notification feed with the same alert every request.
+const recentlyNotified = new Map();
+const SYSTEM_ERROR_THROTTLE_MS = 5 * 60 * 1000;
+
+function notifySystemError(err) {
+  const key = err.message || 'Unknown error';
+  const last = recentlyNotified.get(key);
+  if (last && Date.now() - last < SYSTEM_ERROR_THROTTLE_MS) return;
+  recentlyNotified.set(key, Date.now());
+  notifyAdmins('system_error', 'System error', key).catch(() => {});
+}
+
 export function notFoundHandler(req, res) {
   res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
 }
@@ -25,6 +40,7 @@ export function errorHandler(err, _req, res, _next) {
   const statusCode = err.statusCode && err.statusCode >= 400 ? err.statusCode : 500;
   if (process.env.NODE_ENV !== 'test' && statusCode >= 500) {
     console.error(err);
+    notifySystemError(err);
   }
   res.status(statusCode).json({
     message: err.message || 'Internal server error',

@@ -1,15 +1,16 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, QueryList, ViewChildren, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AdminMenuItem, AdminService } from '../../../core/services/admin.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { AdminShellComponent } from '../../../shared/components/admin-shell/admin-shell.component';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { ImageUploadComponent } from '../../../shared/components/image-upload/image-upload.component';
 import { InrPipe } from '../../../shared/pipes/inr.pipe';
 
 @Component({
   selector: 'app-admin-foods',
   standalone: true,
-  imports: [AdminShellComponent, IconComponent, InrPipe, FormsModule],
+  imports: [AdminShellComponent, IconComponent, InrPipe, FormsModule, ImageUploadComponent],
   template: `
     <app-admin-shell title="Foods">
       <div class="flex flex-wrap items-center gap-2">
@@ -39,6 +40,7 @@ import { InrPipe } from '../../../shared/pipes/inr.pipe';
         <table class="w-full text-left text-sm">
           <thead class="bg-ink-50 text-xs font-semibold uppercase text-ink-400 dark:bg-ink-900/40 dark:text-ink-500">
             <tr>
+              <th class="px-4 py-2.5">Photo</th>
               <th class="px-4 py-2.5">Name</th>
               <th class="px-4 py-2.5">Restaurant</th>
               <th class="px-4 py-2.5">Category</th>
@@ -48,8 +50,22 @@ import { InrPipe } from '../../../shared/pipes/inr.pipe';
             </tr>
           </thead>
           <tbody>
-            @for (item of items(); track item._id) {
+            @for (item of items(); track item._id; let i = $index) {
               <tr class="border-t border-ink-100 dark:border-ink-800">
+                <td class="px-4 py-2.5">
+                  <app-image-upload
+                    #imageUpload
+                    shape="square"
+                    size="sm"
+                    [maxBytes]="2000000"
+                    [value]="item.image || null"
+                    [uploading]="replacingId() === item._id"
+                    [progress]="replacingId() === item._id ? replaceProgress() : null"
+                    (picked)="onImagePicked($event, item, i)"
+                    (invalidFile)="toast.error($event)"
+                    label=""
+                  />
+                </td>
                 <td class="px-4 py-2.5 font-medium text-ink-900 dark:text-white">{{ item.name }}</td>
                 <td class="px-4 py-2.5 text-ink-600 dark:text-ink-300">{{ item.restaurant?.name ?? '—' }}</td>
                 <td class="px-4 py-2.5 text-ink-600 dark:text-ink-300">{{ item.category }}</td>
@@ -76,7 +92,7 @@ import { InrPipe } from '../../../shared/pipes/inr.pipe';
                 </td>
               </tr>
             } @empty {
-              <tr><td colspan="6" class="px-4 py-8 text-center text-sm text-ink-400">No menu items found.</td></tr>
+              <tr><td colspan="7" class="px-4 py-8 text-center text-sm text-ink-400">No menu items found.</td></tr>
             }
           </tbody>
         </table>
@@ -89,12 +105,16 @@ export class AdminFoodsComponent implements OnInit {
   query = '';
   showTrending = signal(false);
   trending = signal<{ name: string; qty: number }[]>([]);
+  replacingId = signal<string | null>(null);
+  replaceProgress = signal<number | null>(null);
+
+  @ViewChildren('imageUpload') imageUploads!: QueryList<ImageUploadComponent>;
 
   private fetchTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     private adminService: AdminService,
-    private toast: ToastService
+    public toast: ToastService
   ) {}
 
   async ngOnInit() {
@@ -116,6 +136,22 @@ export class AdminFoodsComponent implements OnInit {
     if (this.showTrending() && this.trending().length === 0) {
       const res = await this.adminService.listTrendingFoods();
       this.trending.set(res.items);
+    }
+  }
+
+  async onImagePicked(e: { dataUrl: string; file: File }, item: AdminMenuItem, index: number) {
+    this.replacingId.set(item._id);
+    this.replaceProgress.set(0);
+    try {
+      const res = await this.adminService.updateFood(item._id, { image: e.dataUrl }, (pct) => this.replaceProgress.set(pct));
+      this.items.update((list) => list.map((x) => (x._id === item._id ? res.item : x)));
+      this.toast.success('Food image updated');
+    } catch (err: any) {
+      this.imageUploads.get(index)?.discardPending();
+      this.toast.error(err?.error?.message ?? 'Could not update food image');
+    } finally {
+      this.replacingId.set(null);
+      this.replaceProgress.set(null);
     }
   }
 

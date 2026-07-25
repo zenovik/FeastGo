@@ -3,13 +3,13 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { SellerAuthService } from '../../../core/services/seller-auth.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
-
-const PHONE_PATTERN = /^\d{10}$/;
+import { MobileFieldComponent } from '../../../shared/components/mobile-field/mobile-field.component';
+import { normalizeMobile, validateMobile } from '../../../shared/utils/mobile-validation';
 
 @Component({
   selector: 'app-seller-signup',
   standalone: true,
-  imports: [FormsModule, RouterLink, IconComponent],
+  imports: [FormsModule, RouterLink, IconComponent, MobileFieldComponent],
   template: `
     <div class="container-shell flex min-h-[70vh] max-w-md flex-col justify-center py-10">
       <div class="mb-6 text-center">
@@ -29,23 +29,7 @@ const PHONE_PATTERN = /^\d{10}$/;
             <p class="text-xs font-bold uppercase tracking-wide text-ink-400">Your details</p>
             <input [(ngModel)]="name" name="name" required placeholder="Your name" class="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-ember-400" />
             <input type="email" [(ngModel)]="email" name="email" required placeholder="Email address" class="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-ember-400" />
-            <div>
-              <input
-                type="tel"
-                [(ngModel)]="phone"
-                name="phone"
-                required
-                maxlength="10"
-                placeholder="Phone number (10 digits)"
-                class="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:border-ember-400"
-                [class.border-ember-400]="phoneTouched() && !phoneValid()"
-                [class.border-ink-200]="!(phoneTouched() && !phoneValid())"
-                (blur)="phoneTouched.set(true)"
-              />
-              @if (phoneTouched() && phone.trim() && !phoneValid()) {
-                <p class="mt-1 text-xs font-medium text-ember-600">Enter a valid 10-digit phone number</p>
-              }
-            </div>
+            <app-mobile-field [value]="phone" (valueChange)="phone = $event" (validityChange)="phoneValid.set($event)" placeholder="Phone number (10 digits)" />
             <input type="password" [(ngModel)]="password" name="password" required minlength="6" placeholder="Password (min 6 characters)" class="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-ember-400" />
             <input type="password" [(ngModel)]="confirmPassword" name="confirmPassword" required placeholder="Confirm password" class="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-ember-400" />
           </div>
@@ -94,16 +78,12 @@ export class SellerSignupComponent {
 
   submitting = signal(false);
   error = signal<string | null>(null);
-  phoneTouched = signal(false);
+  phoneValid = signal(false);
 
   constructor(
     private auth: SellerAuthService,
     private router: Router
   ) {}
-
-  phoneValid(): boolean {
-    return PHONE_PATTERN.test(this.phone.trim());
-  }
 
   formValid(): boolean {
     return (
@@ -120,9 +100,9 @@ export class SellerSignupComponent {
 
   async onSubmit(e: Event) {
     e.preventDefault();
-    this.phoneTouched.set(true);
-    if (!this.phoneValid()) {
-      this.error.set('Enter a valid phone number');
+    const result = validateMobile(this.phone);
+    if (!result.valid) {
+      this.error.set(result.message);
       return;
     }
     if (this.password !== this.confirmPassword) {
@@ -136,7 +116,7 @@ export class SellerSignupComponent {
         name: this.name.trim(),
         businessName: this.businessName.trim(),
         email: this.email.trim(),
-        phone: this.phone.trim(),
+        phone: normalizeMobile(this.phone),
         password: this.password,
       });
 

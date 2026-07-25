@@ -4,6 +4,7 @@ import { DeliveryAccount } from '../../../core/models/role-account.model';
 import { AdminService } from '../../../core/services/admin.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { AdminShellComponent } from '../../../shared/components/admin-shell/admin-shell.component';
+import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { InrPipe } from '../../../shared/pipes/inr.pipe';
 
 interface Performance {
@@ -15,7 +16,7 @@ interface Performance {
 @Component({
   selector: 'app-admin-delivery-partners',
   standalone: true,
-  imports: [AdminShellComponent, InrPipe, FormsModule],
+  imports: [AdminShellComponent, InrPipe, FormsModule, IconComponent],
   template: `
     <app-admin-shell title="Delivery Partners">
       <div class="flex flex-wrap items-center gap-2">
@@ -39,8 +40,24 @@ interface Performance {
               <span class="h-2.5 w-2.5 shrink-0 rounded-full" [class.bg-basil-500]="p.isOnline" [class.bg-ink-200]="!p.isOnline"></span>
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm font-semibold text-ink-900 dark:text-white">{{ p.name }}</p>
-                <p class="text-xs text-ink-400">{{ p.email }} · {{ p.phone }} · {{ p.vehicleType }} {{ p.vehicleNumber }}</p>
+                <p class="text-xs text-ink-400">{{ p.email }} · {{ p.phone }} · {{ p.vehicleType }} {{ p.vehicleNumber }} · ⭐ {{ p.rating.average || '—' }} ({{ p.rating.count }})</p>
+                @if (p.status === 'rejected' && p.rejectionReason) {
+                  <p class="mt-0.5 text-xs font-medium text-ember-600">Rejected: {{ p.rejectionReason }}</p>
+                }
+                @if (p.orderRejectionCount > 0) {
+                  <p class="mt-0.5 text-xs text-ink-400">Declined {{ p.orderRejectionCount }} order{{ p.orderRejectionCount === 1 ? '' : 's' }}</p>
+                }
               </div>
+              @if (p.flaggedForReview) {
+                <span class="flex items-center gap-1 rounded-full bg-ember-100 px-2.5 py-1 text-xs font-bold text-ember-700">
+                  <app-icon name="alert-triangle" [size]="12" /> Flagged for review
+                </span>
+              }
+              @if (p.documentsSubmitted) {
+                <span class="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-600">Docs submitted</span>
+              } @else {
+                <span class="rounded-full bg-ink-50 px-2.5 py-1 text-xs font-bold text-ink-400 dark:bg-ink-900/40">No docs</span>
+              }
               <span
                 class="rounded-full px-2.5 py-1 text-xs font-bold capitalize"
                 [class.bg-basil-100]="p.status === 'approved'"
@@ -66,28 +83,46 @@ interface Performance {
                   {{ p.isSuspended ? 'Unsuspend' : 'Suspend' }}
                 </button>
                 <button type="button" class="rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-bold text-ink-600 dark:border-ink-700 dark:text-ink-300" (click)="togglePerf(p)">
-                  {{ expandedId() === p.id ? 'Hide' : 'Performance' }}
+                  {{ expandedId() === p.id ? 'Hide' : 'Details' }}
                 </button>
               </div>
             </div>
 
             @if (expandedId() === p.id) {
-              <div class="mt-3 grid grid-cols-3 gap-2 border-t border-ink-100 pt-3 dark:border-ink-700">
-                @if (perf(); as e) {
-                  <div class="rounded-lg bg-ink-50 p-2.5 text-center dark:bg-ink-900/40">
-                    <p class="text-[11px] uppercase text-ink-400">Deliveries</p>
-                    <p class="font-bold text-ink-900 dark:text-white">{{ e.deliveriesCompleted }}</p>
+              <div class="mt-3 border-t border-ink-100 pt-3 dark:border-ink-700">
+                <div class="grid grid-cols-3 gap-2">
+                  @if (perf(); as e) {
+                    <div class="rounded-lg bg-ink-50 p-2.5 text-center dark:bg-ink-900/40">
+                      <p class="text-[11px] uppercase text-ink-400">Deliveries</p>
+                      <p class="font-bold text-ink-900 dark:text-white">{{ e.deliveriesCompleted }}</p>
+                    </div>
+                    <div class="rounded-lg bg-ink-50 p-2.5 text-center dark:bg-ink-900/40">
+                      <p class="text-[11px] uppercase text-ink-400">Earnings</p>
+                      <p class="font-bold text-ink-900 dark:text-white">{{ e.totalEarnings | inr }}</p>
+                    </div>
+                    <div class="rounded-lg bg-ink-50 p-2.5 text-center dark:bg-ink-900/40">
+                      <p class="text-[11px] uppercase text-ink-400">Cancelled</p>
+                      <p class="font-bold text-ink-900 dark:text-white">{{ e.cancelledCount }}</p>
+                    </div>
+                  } @else {
+                    <p class="col-span-3 text-sm text-ink-400">Loading performance…</p>
+                  }
+                </div>
+
+                @if (p.documentsSubmitted) {
+                  <div class="mt-3 grid grid-cols-4 gap-2">
+                    @for (doc of documentEntries(p); track doc.key) {
+                      <a [href]="doc.url" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg border border-ink-100 dark:border-ink-700">
+                        <img [src]="doc.url" [alt]="doc.key" class="h-16 w-full object-cover" />
+                        <p class="p-1 text-center text-[10px] font-semibold capitalize text-ink-500">{{ doc.key }}</p>
+                      </a>
+                    }
                   </div>
-                  <div class="rounded-lg bg-ink-50 p-2.5 text-center dark:bg-ink-900/40">
-                    <p class="text-[11px] uppercase text-ink-400">Earnings</p>
-                    <p class="font-bold text-ink-900 dark:text-white">{{ e.totalEarnings | inr }}</p>
-                  </div>
-                  <div class="rounded-lg bg-ink-50 p-2.5 text-center dark:bg-ink-900/40">
-                    <p class="text-[11px] uppercase text-ink-400">Cancelled</p>
-                    <p class="font-bold text-ink-900 dark:text-white">{{ e.cancelledCount }}</p>
-                  </div>
-                } @else {
-                  <p class="col-span-3 text-sm text-ink-400">Loading performance…</p>
+                }
+                @if (p.bankDetails?.upiId || p.bankDetails?.accountNumber) {
+                  <p class="mt-2 text-xs text-ink-400">
+                    Bank: {{ p.bankDetails.accountHolder }} · {{ p.bankDetails.accountNumber }} ({{ p.bankDetails.ifsc }}) · UPI {{ p.bankDetails.upiId }}
+                  </p>
                 }
               </div>
             }
@@ -120,9 +155,16 @@ export class AdminDeliveryPartnersComponent implements OnInit {
   }
 
   async setStatus(p: DeliveryAccount, status: string) {
-    const res = await this.adminService.setDeliveryPartnerStatus(p.id, status);
+    const reason = status === 'rejected' ? prompt('Reason for rejecting this partner (optional):') ?? '' : undefined;
+    const res = await this.adminService.setDeliveryPartnerStatus(p.id, status, reason);
     this.partners.update((list) => list.map((x) => (x.id === p.id ? res.partner : x)));
     this.toast.success(`Delivery partner ${status}`);
+  }
+
+  documentEntries(p: DeliveryAccount): { key: string; url: string }[] {
+    return Object.entries(p.documents ?? {})
+      .filter(([, url]) => !!url)
+      .map(([key, url]) => ({ key, url: url as string }));
   }
 
   async toggleSuspend(p: DeliveryAccount) {

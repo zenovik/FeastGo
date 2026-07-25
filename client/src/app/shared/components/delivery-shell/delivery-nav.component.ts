@@ -1,12 +1,14 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { DeliveryAuthService } from '../../../core/services/delivery-auth.service';
+import { NotificationService } from '../../../core/services/notification.service';
 import { IconComponent } from '../icon/icon.component';
+import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 
 @Component({
   selector: 'app-delivery-nav',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, IconComponent],
+  imports: [RouterLink, RouterLinkActive, IconComponent, NotificationBellComponent],
   template: `
     <header class="border-b border-ink-100 bg-white">
       <div class="container-shell flex h-16 items-center gap-6">
@@ -21,6 +23,7 @@ import { IconComponent } from '../icon/icon.component';
           <a routerLink="/delivery/orders" routerLinkActive="text-ember-600 bg-ember-50" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50">Orders</a>
           <a routerLink="/delivery/history" routerLinkActive="text-ember-600 bg-ember-50" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50">History</a>
           <a routerLink="/delivery/profile" routerLinkActive="text-ember-600 bg-ember-50" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50">Profile</a>
+          <app-notification-bell role="delivery" [iconSize]="18" />
           <button type="button" class="ml-2 rounded-lg px-3 py-2 text-ember-600 hover:bg-ember-50" (click)="logout()">Sign out</button>
         </nav>
       </div>
@@ -32,10 +35,12 @@ export class DeliveryNavComponent implements OnInit, OnDestroy {
 
   constructor(
     public auth: DeliveryAuthService,
+    public notif: NotificationService,
     private router: Router
   ) {}
 
   ngOnInit() {
+    this.notif.init('delivery');
     // While pending/rejected/suspended, an admin can change that status at
     // any moment from their own session — keep this tab's own account fresh
     // so the banner clears itself instead of needing a manual reload.
@@ -55,6 +60,7 @@ export class DeliveryNavComponent implements OnInit, OnDestroy {
 
   async logout() {
     await this.auth.logout();
+    this.notif.disconnect();
     this.router.navigate(['/delivery/login']);
   }
 }

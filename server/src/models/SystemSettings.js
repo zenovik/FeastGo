@@ -12,6 +12,12 @@ const systemSettingsSchema = new mongoose.Schema(
     commissionPercent: { type: Number, default: 15 },
     defaultDeliveryFee: { type: Number, default: 2.5 },
     taxPercent: { type: Number, default: 5 },
+    // Delivery-assignment tuning: how many times an order may be auto-reassigned
+    // after rejections before admin gets an explicit "assign manually" alert,
+    // and how many lifetime order rejections a partner may rack up before their
+    // account is auto-flagged for admin review.
+    maxReassignAttempts: { type: Number, default: 3 },
+    maxRejectionsBeforeFlag: { type: Number, default: 5 },
     paymentGateway: {
       provider: { type: String, default: 'razorpay' },
       apiKey: { type: String, default: '' },

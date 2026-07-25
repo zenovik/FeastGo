@@ -7,9 +7,9 @@ import { SellerService } from '../../../core/services/seller.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { CategoryService, FoodCategory } from '../../../core/services/category.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { ImageUploadComponent } from '../../../shared/components/image-upload/image-upload.component';
 import { SellerShellComponent } from '../../../shared/components/seller-shell/seller-shell.component';
 import { InrPipe } from '../../../shared/pipes/inr.pipe';
-import { validateImageFile } from '../../../shared/utils/image-file';
 
 interface ItemForm {
   name: string;
@@ -46,7 +46,7 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 @Component({
   selector: 'app-seller-menu',
   standalone: true,
-  imports: [FormsModule, DragDropModule, IconComponent, SellerShellComponent, InrPipe],
+  imports: [FormsModule, DragDropModule, IconComponent, SellerShellComponent, InrPipe, ImageUploadComponent],
   template: `
     <app-seller-shell title="Menu">
       <div class="flex flex-wrap items-center justify-between gap-2">
@@ -101,10 +101,17 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                   </button>
                 </div>
               }
-              <label class="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-ink-200 text-ink-400 hover:border-ember-400 dark:border-ink-700">
-                <app-icon name="camera" [size]="16" />
-                <input type="file" accept="image/*" multiple class="hidden" (change)="onImagesSelected($event)" />
-              </label>
+              <app-image-upload
+                shape="square"
+                size="sm"
+                [multiple]="true"
+                [maxBytes]="2000000"
+                [uploading]="submitting()"
+                [progress]="saveProgress()"
+                label=""
+                (picked)="onImagePicked($event)"
+                (invalidFile)="toast.error($event)"
+              />
             </div>
           </div>
 
@@ -296,6 +303,7 @@ export class SellerMenuComponent implements OnInit {
   view = signal<'grid' | 'table'>('grid');
   showForm = signal(false);
   submitting = signal(false);
+  saveProgress = signal<number | null>(null);
   editingId = signal<string | null>(null);
   previewItem = signal<MenuItem | null>(null);
   weekdays = WEEKDAYS;
@@ -326,7 +334,7 @@ export class SellerMenuComponent implements OnInit {
     private sellerService: SellerService,
     private categoryService: CategoryService,
     private auth: SellerAuthService,
-    private toast: ToastService
+    public toast: ToastService
   ) {}
 
   async ngOnInit() {
@@ -377,20 +385,8 @@ export class SellerMenuComponent implements OnInit {
     else days.splice(idx, 1);
   }
 
-  onImagesSelected(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const files = Array.from(input.files ?? []);
-    for (const file of files) {
-      const error = validateImageFile(file, 2_000_000);
-      if (error) {
-        this.toast.error(error);
-        continue;
-      }
-      const reader = new FileReader();
-      reader.onload = () => this.form.images.push(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-    input.value = '';
+  onImagePicked(e: { dataUrl: string; file: File }) {
+    this.form.images.push(e.dataUrl);
   }
 
   removeImage(index: number) {
@@ -418,11 +414,11 @@ export class SellerMenuComponent implements OnInit {
       };
 
       if (this.editingId()) {
-        const res = await this.sellerService.updateMenuItem(this.editingId()!, payload);
+        const res = await this.sellerService.updateMenuItem(this.editingId()!, payload, (pct) => this.saveProgress.set(pct));
         this.items.update((items) => items.map((i) => (i._id === res.item._id ? res.item : i)));
         this.toast.success('Menu item updated');
       } else {
-        const res = await this.sellerService.createMenuItem(payload);
+        const res = await this.sellerService.createMenuItem(payload, (pct) => this.saveProgress.set(pct));
         this.items.update((items) => [res.item, ...items]);
         this.toast.success('Menu item added');
       }
@@ -433,6 +429,7 @@ export class SellerMenuComponent implements OnInit {
       this.toast.error(err?.error?.message ?? 'Could not save item');
     } finally {
       this.submitting.set(false);
+      this.saveProgress.set(null);
     }
   }
 

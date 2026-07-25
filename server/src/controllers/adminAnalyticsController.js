@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import Restaurant from '../models/Restaurant.js';
 import RestaurantOwner from '../models/RestaurantOwner.js';
 import DeliveryPartner from '../models/DeliveryPartner.js';
+import DeliveryEarning from '../models/DeliveryEarning.js';
 import Order from '../models/Order.js';
 
 const ACTIVE_STATUSES = ['placed', 'confirmed', 'preparing', 'ready_for_pickup', 'out_for_delivery'];
@@ -217,7 +218,7 @@ export async function getSellerReport(_req, res, next) {
 
 export async function getDeliveryReport(_req, res, next) {
   try {
-    const partners = await DeliveryPartner.find().select('name status isOnline');
+    const partners = await DeliveryPartner.find().select('name status isOnline rating');
     const partnerIds = partners.map((p) => p._id);
     const deliveryStats = await Order.aggregate([
       { $match: { deliveryPartner: { $in: partnerIds }, status: 'delivered' } },
@@ -232,6 +233,7 @@ export async function getDeliveryReport(_req, res, next) {
         name: p.name,
         status: p.status,
         isOnline: p.isOnline,
+        rating: p.rating?.average ?? 0,
         deliveries: stat?.deliveries ?? 0,
         earnings: stat?.earnings ?? 0,
       };
@@ -239,6 +241,40 @@ export async function getDeliveryReport(_req, res, next) {
     partnerReport.sort((a, b) => b.deliveries - a.deliveries);
 
     res.json({ partners: partnerReport });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getDeliveryAnalytics(_req, res, next) {
+  try {
+    const [dailyAgg, monthlyAgg, failedCount, earningsAgg, avgTimeAgg] = await Promise.all([
+      Order.aggregate([
+        { $match: { deliveryPartner: { $ne: null }, deliveredAt: { $gte: daysAgo(13) } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$deliveredAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]),
+      Order.aggregate([
+        { $match: { deliveryPartner: { $ne: null }, deliveredAt: { $gte: daysAgo(180) } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$deliveredAt' } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]),
+      Order.countDocuments({ deliveryStatus: 'failed' }),
+      DeliveryEarning.aggregate([{ $group: { _id: null, total: { $sum: '$total' } } }]),
+      Order.aggregate([
+        { $match: { pickedUpAt: { $ne: null }, deliveredAt: { $ne: null } } },
+        { $project: { minutes: { $divide: [{ $subtract: ['$deliveredAt', '$pickedUpAt'] }, 60000] } } },
+        { $group: { _id: null, avgMinutes: { $avg: '$minutes' } } },
+      ]),
+    ]);
+
+    res.json({
+      dailyDeliveries: dailyAgg.map((d) => ({ date: d._id, count: d.count })),
+      monthlyDeliveries: monthlyAgg.map((d) => ({ month: d._id, count: d.count })),
+      failedDeliveries: failedCount,
+      totalDeliveryEarnings: earningsAgg[0]?.total ?? 0,
+      avgDeliveryMinutes: avgTimeAgg[0]?.avgMinutes ? Math.round(avgTimeAgg[0].avgMinutes) : 0,
+    });
   } catch (err) {
     next(err);
   }

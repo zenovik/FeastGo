@@ -1,12 +1,12 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, ViewChild, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { SellerAuthService } from '../../../core/services/seller-auth.service';
 import { SellerService } from '../../../core/services/seller.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Restaurant } from '../../../core/models/restaurant.model';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { ImageUploadComponent } from '../../../shared/components/image-upload/image-upload.component';
 import { SellerShellComponent } from '../../../shared/components/seller-shell/seller-shell.component';
-import { validateImageFile, readImageFileAsDataUrl } from '../../../shared/utils/image-file';
 
 type Tab = 'profile' | 'hours' | 'bank' | 'notifications' | 'security';
 
@@ -38,7 +38,7 @@ function defaultBusinessHours() {
 @Component({
   selector: 'app-seller-settings',
   standalone: true,
-  imports: [FormsModule, IconComponent, SellerShellComponent],
+  imports: [FormsModule, IconComponent, SellerShellComponent, ImageUploadComponent],
   template: `
     <app-seller-shell title="Settings">
       @if (restaurant(); as r) {
@@ -72,15 +72,17 @@ function defaultBusinessHours() {
 
               <div>
                 <p class="mb-1 text-xs font-semibold text-ink-500">Cover image</p>
-                <div class="flex items-center gap-3">
-                  @if (form.coverImage) {
-                    <img [src]="form.coverImage" alt="Cover" class="h-16 w-24 rounded-lg object-cover" />
-                  }
-                  <label class="flex-1 cursor-pointer rounded-lg border border-dashed border-ink-200 px-3 py-2 text-center text-sm text-ink-500 hover:border-ember-400 dark:border-ink-700">
-                    {{ form.coverImage ? 'Change cover' : 'Upload cover image' }}
-                    <input type="file" accept="image/*" class="hidden" (change)="onCoverSelected($event)" />
-                  </label>
-                </div>
+                <app-image-upload
+                  #coverUpload
+                  shape="banner"
+                  [maxBytes]="3000000"
+                  [value]="restaurant()?.coverImage || null"
+                  [uploading]="submitting()"
+                  [progress]="coverProgress()"
+                  (picked)="onCoverPicked($event)"
+                  (invalidFile)="toast.error($event)"
+                  label="Change cover image"
+                />
               </div>
 
               <div>
@@ -94,10 +96,15 @@ function defaultBusinessHours() {
                       </button>
                     </div>
                   }
-                  <label class="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-ink-200 text-ink-400 hover:border-ember-400 dark:border-ink-700">
-                    <app-icon name="camera" [size]="16" />
-                    <input type="file" accept="image/*" multiple class="hidden" (change)="onGallerySelected($event)" />
-                  </label>
+                  <app-image-upload
+                    shape="square"
+                    size="sm"
+                    [multiple]="true"
+                    [maxBytes]="2000000"
+                    label=""
+                    (picked)="onGalleryPicked($event)"
+                    (invalidFile)="toast.error($event)"
+                  />
                 </div>
               </div>
 
@@ -219,8 +226,9 @@ function defaultBusinessHours() {
   `,
 })
 export class SellerSettingsComponent implements OnInit {
-  restaurant = signal<Restaurant | null>(null);
   submitting = signal(false);
+  coverProgress = signal<number | null>(null);
+  @ViewChild('coverUpload') coverUpload?: ImageUploadComponent;
   activeTab = signal<Tab>('profile');
   tabs: { id: Tab; label: string }[] = [
     { id: 'profile', label: 'Profile' },
@@ -254,14 +262,17 @@ export class SellerSettingsComponent implements OnInit {
 
   constructor(
     private auth: SellerAuthService,
-    private sellerService: SellerService,
-    private toast: ToastService
+    public sellerService: SellerService,
+    public toast: ToastService
   ) {}
 
+  get restaurant() {
+    return this.sellerService.restaurant;
+  }
+
   async ngOnInit() {
-    const res = await this.auth.getMyRestaurant();
-    this.restaurant.set(res.restaurant);
-    if (res.restaurant) this.hydrateForm(res.restaurant);
+    const restaurant = await this.sellerService.refreshRestaurant();
+    if (restaurant) this.hydrateForm(restaurant);
   }
 
   private hydrateForm(r: Restaurant) {
@@ -289,61 +300,49 @@ export class SellerSettingsComponent implements OnInit {
     return DAY_NAMES[day];
   }
 
-  async onCoverSelected(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    const error = validateImageFile(file, 3_000_000);
-    if (error) {
-      this.toast.error(error);
-      return;
-    }
-    this.form.coverImage = await readImageFileAsDataUrl(file);
+  onCoverPicked(e: { dataUrl: string; file: File }) {
+    this.form.coverImage = e.dataUrl;
   }
 
-  async onGallerySelected(e: Event) {
-    const input = e.target as HTMLInputElement;
-    for (const file of Array.from(input.files ?? [])) {
-      const error = validateImageFile(file, 2_000_000);
-      if (error) {
-        this.toast.error(error);
-        continue;
-      }
-      this.form.images.push(await readImageFileAsDataUrl(file));
-    }
-    input.value = '';
+  onGalleryPicked(e: { dataUrl: string; file: File }) {
+    this.form.images.push(e.dataUrl);
   }
 
   async onSaveProfile(e: Event) {
     e.preventDefault();
     this.submitting.set(true);
+    this.coverProgress.set(0);
     try {
-      const res = await this.sellerService.updateRestaurant({
-        name: this.form.name.trim(),
-        isOpen: this.form.isOpen,
-        description: this.form.description,
-        cuisines: this.form.cuisines.split(',').map((c) => c.trim()).filter(Boolean),
-        coverImage: this.form.coverImage,
-        images: this.form.images,
-        deliveryFee: this.form.deliveryFee,
-        minOrder: this.form.minOrder,
-        deliveryRadiusKm: this.form.deliveryRadiusKm,
-        offer: this.form.offer,
-        socialLinks: this.form.socialLinks,
-      });
-      this.restaurant.set(res.restaurant);
+      await this.sellerService.updateRestaurant(
+        {
+          name: this.form.name.trim(),
+          isOpen: this.form.isOpen,
+          description: this.form.description,
+          cuisines: this.form.cuisines.split(',').map((c) => c.trim()).filter(Boolean),
+          coverImage: this.form.coverImage,
+          images: this.form.images,
+          deliveryFee: this.form.deliveryFee,
+          minOrder: this.form.minOrder,
+          deliveryRadiusKm: this.form.deliveryRadiusKm,
+          offer: this.form.offer,
+          socialLinks: this.form.socialLinks,
+        },
+        (pct) => this.coverProgress.set(pct)
+      );
       this.toast.success('Profile saved');
     } catch (err: any) {
+      this.coverUpload?.discardPending();
       this.toast.error(err?.error?.message ?? 'Could not save profile');
     } finally {
       this.submitting.set(false);
+      this.coverProgress.set(null);
     }
   }
 
   async saveHours() {
     this.submitting.set(true);
     try {
-      const res = await this.sellerService.updateRestaurant({ businessHours: this.form.businessHours });
-      this.restaurant.set(res.restaurant);
+      await this.sellerService.updateRestaurant({ businessHours: this.form.businessHours });
       this.toast.success('Hours saved');
     } catch (err: any) {
       this.toast.error(err?.error?.message ?? 'Could not save hours');
@@ -366,8 +365,7 @@ export class SellerSettingsComponent implements OnInit {
 
   private async saveHolidays() {
     try {
-      const res = await this.sellerService.updateRestaurant({ holidays: this.form.holidays as any });
-      this.restaurant.set(res.restaurant);
+      await this.sellerService.updateRestaurant({ holidays: this.form.holidays as any });
       this.toast.success('Holidays updated');
     } catch (err: any) {
       this.toast.error(err?.error?.message ?? 'Could not update holidays');
@@ -378,8 +376,7 @@ export class SellerSettingsComponent implements OnInit {
     e.preventDefault();
     this.submitting.set(true);
     try {
-      const res = await this.sellerService.updateRestaurant({ gstNumber: this.form.gstNumber, bankDetails: this.form.bankDetails });
-      this.restaurant.set(res.restaurant);
+      await this.sellerService.updateRestaurant({ gstNumber: this.form.gstNumber, bankDetails: this.form.bankDetails });
       this.toast.success('Bank details saved');
     } catch (err: any) {
       this.toast.error(err?.error?.message ?? 'Could not save bank details');
@@ -390,8 +387,7 @@ export class SellerSettingsComponent implements OnInit {
 
   async onSaveNotificationPrefs() {
     try {
-      const res = await this.sellerService.updateRestaurant({ notificationPrefs: this.form.notificationPrefs });
-      this.restaurant.set(res.restaurant);
+      await this.sellerService.updateRestaurant({ notificationPrefs: this.form.notificationPrefs });
       this.toast.success('Notification preferences saved');
     } catch (err: any) {
       this.toast.error(err?.error?.message ?? 'Could not save preferences');

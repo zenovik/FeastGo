@@ -29,6 +29,9 @@ import { IconComponent } from '../../../shared/components/icon/icon.component';
             {{ submitting() ? 'Signing in…' : 'Sign in' }}
           </button>
         </form>
+        <p class="text-center text-sm">
+          <a routerLink="/delivery/forgot-password" class="font-semibold text-ink-500 hover:text-ink-700">Forgot password?</a>
+        </p>
         <p class="text-center text-sm text-ink-500">
           New here? <a routerLink="/delivery/signup" class="font-semibold text-ember-600 hover:text-ember-700">Sign up as a rider</a>
         </p>

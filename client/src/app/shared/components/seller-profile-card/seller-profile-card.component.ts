@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, ViewChild, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Restaurant } from '../../../core/models/restaurant.model';
 import { SellerAccount } from '../../../core/models/role-account.model';
@@ -6,7 +6,9 @@ import { SellerAuthService } from '../../../core/services/seller-auth.service';
 import { SellerService } from '../../../core/services/seller.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { IconComponent } from '../icon/icon.component';
-import { validateImageFile, readImageFileAsDataUrl } from '../../utils/image-file';
+import { ImageUploadComponent } from '../image-upload/image-upload.component';
+import { MobileFieldComponent } from '../mobile-field/mobile-field.component';
+import { validateMobile } from '../../utils/mobile-validation';
 
 interface ProfileForm {
   name: string;
@@ -32,26 +34,20 @@ interface ProfileForm {
 @Component({
   selector: 'app-seller-profile-card',
   standalone: true,
-  imports: [FormsModule, IconComponent],
+  imports: [FormsModule, IconComponent, MobileFieldComponent, ImageUploadComponent],
   template: `
     <div class="seller-profile-card relative overflow-hidden rounded-3xl border border-white/40 bg-white/70 shadow-[0_8px_40px_-8px_rgba(20,10,5,0.18)] backdrop-blur-xl dark:border-white/10 dark:bg-ink-800/60">
       <!-- Cover -->
       <div class="relative h-36 w-full overflow-hidden bg-gradient-to-br from-ink-200 to-ink-300 dark:from-ink-700 dark:to-ink-900 sm:h-44">
-        @if (coverSrc()) {
-          <img [src]="coverSrc()" alt="Cover" class="h-full w-full object-cover" />
-        } @else {
-          <div class="flex h-full w-full items-center justify-center text-ink-400 dark:text-ink-500">
-            <app-icon name="image" [size]="28" />
-          </div>
-        }
-        <div class="absolute inset-0 bg-gradient-to-t from-ink-900/70 via-ink-900/10 to-transparent"></div>
-
-        @if (editing()) {
-          <label class="absolute right-3 top-3 flex cursor-pointer items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-bold text-ink-700 shadow backdrop-blur hover:bg-white">
-            <app-icon name="camera" [size]="13" /> Change cover
-            <input type="file" accept="image/*" class="hidden" (change)="onCoverSelected($event)" />
-          </label>
-        } @else {
+        @if (!editing()) {
+          @if (restaurant.coverImage) {
+            <img [src]="restaurant.coverImage" alt="Cover" class="h-full w-full object-cover" />
+          } @else {
+            <div class="flex h-full w-full items-center justify-center text-ink-400 dark:text-ink-500">
+              <app-icon name="image" [size]="28" />
+            </div>
+          }
+          <div class="absolute inset-0 bg-gradient-to-t from-ink-900/70 via-ink-900/10 to-transparent"></div>
           <div class="absolute right-3 top-3 flex gap-2">
             <button
               type="button"
@@ -61,6 +57,18 @@ interface ProfileForm {
               <app-icon name="edit" [size]="13" /> Edit Profile
             </button>
           </div>
+        } @else {
+          <app-image-upload
+            #coverUpload
+            shape="banner"
+            [maxBytes]="3000000"
+            [value]="restaurant.coverImage || null"
+            [uploading]="saving()"
+            [progress]="coverProgress()"
+            (picked)="onCoverPicked($event)"
+            (invalidFile)="toast.error($event)"
+            label="Change cover photo"
+          />
         }
       </div>
 
@@ -68,22 +76,33 @@ interface ProfileForm {
       <div class="relative px-5 pb-5 sm:px-7">
         <div class="-mt-10 flex items-end gap-4 sm:-mt-12">
           <div class="relative shrink-0">
-            @if (logoSrc()) {
-              <img
-                [src]="logoSrc()"
-                alt="Logo"
-                class="h-20 w-20 rounded-2xl border-4 border-white object-cover shadow-lg dark:border-ink-800 sm:h-24 sm:w-24"
-              />
+            @if (!editing()) {
+              @if (logoSrc()) {
+                <img
+                  [src]="logoSrc()"
+                  alt="Logo"
+                  class="h-20 w-20 rounded-2xl border-4 border-white object-cover shadow-lg dark:border-ink-800 sm:h-24 sm:w-24"
+                />
+              } @else {
+                <div class="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white bg-ink-100 text-ink-400 shadow-lg dark:border-ink-800 dark:bg-ink-700 dark:text-ink-500 sm:h-24 sm:w-24">
+                  <app-icon name="chef-hat" [size]="26" />
+                </div>
+              }
             } @else {
-              <div class="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white bg-ink-100 text-ink-400 shadow-lg dark:border-ink-800 dark:bg-ink-700 dark:text-ink-500 sm:h-24 sm:w-24">
-                <app-icon name="chef-hat" [size]="26" />
+              <div class="rounded-2xl border-4 border-white shadow-lg dark:border-ink-800">
+                <app-image-upload
+                  #logoUpload
+                  shape="square"
+                  size="md"
+                  [maxBytes]="2000000"
+                  [value]="restaurant.logoImage || null"
+                  [uploading]="saving()"
+                  [progress]="logoProgress()"
+                  (picked)="onLogoPicked($event)"
+                  (invalidFile)="toast.error($event)"
+                  label="Logo"
+                />
               </div>
-            }
-            @if (editing()) {
-              <label class="absolute -bottom-1.5 -right-1.5 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-ink-900 text-white shadow">
-                <app-icon name="camera" [size]="14" />
-                <input type="file" accept="image/*" class="hidden" (change)="onLogoSelected($event)" />
-              </label>
             }
           </div>
 
@@ -135,7 +154,7 @@ interface ProfileForm {
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <input [(ngModel)]="form.ownerName" name="ownerName" required placeholder="Owner name" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900" />
                 <input type="email" [(ngModel)]="form.email" name="email" required placeholder="Email address" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900" />
-                <input [(ngModel)]="form.phone" name="phone" required placeholder="Mobile number" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900" />
+                <app-mobile-field [value]="form.phone" (valueChange)="form.phone = $event" placeholder="Mobile number" />
               </div>
             </div>
 
@@ -300,13 +319,18 @@ export class SellerProfileCardComponent {
   editing = signal(false);
   saving = signal(false);
   formError = signal<string | null>(null);
+  coverProgress = signal<number | null>(null);
+  logoProgress = signal<number | null>(null);
+
+  @ViewChild('coverUpload') coverUpload?: ImageUploadComponent;
+  @ViewChild('logoUpload') logoUpload?: ImageUploadComponent;
 
   form: ProfileForm = this.blankForm();
 
   constructor(
     private sellerAuth: SellerAuthService,
     private sellerService: SellerService,
-    private toast: ToastService
+    public toast: ToastService
   ) {}
 
   private blankForm(): ProfileForm {
@@ -377,26 +401,12 @@ export class SellerProfileCardComponent {
     this.formError.set(null);
   }
 
-  async onLogoSelected(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    const error = validateImageFile(file, 2_000_000);
-    if (error) {
-      this.toast.error(error);
-      return;
-    }
-    this.form.logoImage = await readImageFileAsDataUrl(file);
+  onLogoPicked(e: { dataUrl: string; file: File }) {
+    this.form.logoImage = e.dataUrl;
   }
 
-  async onCoverSelected(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    const error = validateImageFile(file, 3_000_000);
-    if (error) {
-      this.toast.error(error);
-      return;
-    }
-    this.form.coverImage = await readImageFileAsDataUrl(file);
+  onCoverPicked(e: { dataUrl: string; file: File }) {
+    this.form.coverImage = e.dataUrl;
   }
 
   private validate(): string | null {
@@ -404,7 +414,8 @@ export class SellerProfileCardComponent {
     if (!f.name.trim()) return 'Restaurant name is required';
     if (!f.ownerName.trim()) return 'Owner name is required';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return 'Enter a valid email address';
-    if (!/^\+?\d{7,15}$/.test(f.phone.trim())) return 'Enter a valid mobile number';
+    const phoneResult = validateMobile(f.phone);
+    if (!phoneResult.valid) return phoneResult.message;
     if (!f.line1.trim()) return 'Street address is required';
     if (!f.city.trim()) return 'City is required';
     if (!f.state.trim()) return 'State is required';
@@ -421,27 +432,35 @@ export class SellerProfileCardComponent {
     }
     this.formError.set(null);
     this.saving.set(true);
+    this.coverProgress.set(0);
+    this.logoProgress.set(0);
     try {
       const [restaurantRes] = await Promise.all([
-        this.sellerService.updateRestaurant({
-          name: this.form.name.trim(),
-          category: this.form.category.trim(),
-          logoImage: this.form.logoImage,
-          coverImage: this.form.coverImage,
-          address: {
-            line1: this.form.line1.trim(),
-            area: this.form.area.trim(),
-            city: this.form.city.trim(),
-            state: this.form.state.trim(),
-            zip: this.form.zip.trim(),
-          } as any,
-          openingTime: this.form.openingTime,
-          closingTime: this.form.closingTime,
-          deliveryRadiusKm: this.form.deliveryRadiusKm,
-          fssaiNumber: this.form.fssaiNumber.trim(),
-          gstNumber: this.form.gstNumber.trim(),
-          isOpen: this.form.isOpen,
-        }),
+        this.sellerService.updateRestaurant(
+          {
+            name: this.form.name.trim(),
+            category: this.form.category.trim(),
+            logoImage: this.form.logoImage,
+            coverImage: this.form.coverImage,
+            address: {
+              line1: this.form.line1.trim(),
+              area: this.form.area.trim(),
+              city: this.form.city.trim(),
+              state: this.form.state.trim(),
+              zip: this.form.zip.trim(),
+            } as any,
+            openingTime: this.form.openingTime,
+            closingTime: this.form.closingTime,
+            deliveryRadiusKm: this.form.deliveryRadiusKm,
+            fssaiNumber: this.form.fssaiNumber.trim(),
+            gstNumber: this.form.gstNumber.trim(),
+            isOpen: this.form.isOpen,
+          },
+          (pct) => {
+            this.coverProgress.set(pct);
+            this.logoProgress.set(pct);
+          }
+        ),
         this.sellerAuth.updateMyProfile({
           name: this.form.ownerName.trim(),
           email: this.form.email.trim(),
@@ -452,9 +471,13 @@ export class SellerProfileCardComponent {
       this.editing.set(false);
       this.toast.success('Profile updated successfully');
     } catch (err: any) {
+      this.coverUpload?.discardPending();
+      this.logoUpload?.discardPending();
       this.toast.error(err?.error?.message ?? 'Could not update profile');
     } finally {
       this.saving.set(false);
+      this.coverProgress.set(null);
+      this.logoProgress.set(null);
     }
   }
 }

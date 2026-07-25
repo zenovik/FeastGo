@@ -1,18 +1,6 @@
-import User from '../models/User.js';
-import RestaurantOwner from '../models/RestaurantOwner.js';
-import DeliveryPartner from '../models/DeliveryPartner.js';
-import { verifyToken } from '../utils/token.js';
 import { ApiError } from '../utils/ApiError.js';
 import { extractToken } from '../utils/extractToken.js';
-
-// Each role's account lives in its own collection (per the spec), so the
-// JWT's `role` claim tells us which model to resolve `sub` against.
-const MODELS_BY_ROLE = {
-  customer: User,
-  admin: User,
-  seller: RestaurantOwner,
-  delivery: DeliveryPartner,
-};
+import { resolveActor } from '../utils/resolveActor.js';
 
 /**
  * requireRole('seller') / requireRole('seller', 'admin') — resolves the JWT
@@ -32,27 +20,7 @@ export function requireRole(...args) {
   return async (req, res, next) => {
     try {
       const token = extractToken(req);
-      if (!token) throw new ApiError(401, 'Not authenticated');
-
-      const payload = verifyToken(token);
-      const role = payload.role || 'customer';
-      if (!roles.includes(role)) throw new ApiError(403, 'You do not have access to this resource');
-
-      const Model = MODELS_BY_ROLE[role];
-      if (!Model) throw new ApiError(401, 'Not authenticated');
-
-      const actor = await Model.findById(payload.sub);
-      if (!actor) throw new ApiError(401, 'Account no longer exists');
-      if (role === 'admin' && actor.role !== 'admin') throw new ApiError(403, 'You do not have access to this resource');
-      if (!options.allowSuspended) {
-        if ((role === 'seller' || role === 'delivery') && actor.isSuspended) {
-          throw new ApiError(403, 'Your account has been suspended by the admin. Contact support for help.');
-        }
-        if (role === 'customer' && actor.isBlocked) {
-          throw new ApiError(403, 'Your account has been blocked. Contact support for help.');
-        }
-      }
-
+      const { actor, role } = await resolveActor(token, { allowedRoles: roles, allowSuspended: options.allowSuspended });
       req.user = actor;
       req.role = role;
       next();

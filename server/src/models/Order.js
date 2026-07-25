@@ -9,6 +9,28 @@ export const ORDER_STATUSES = [
   'out_for_delivery',
   'delivered',
   'cancelled',
+  'failed',
+  'returned',
+];
+
+// Finer-grained delivery-partner journey, layered underneath the top-level
+// `status` above (which stays the source of truth for seller/admin/customer
+// views that already key off it). `status` flips to 'out_for_delivery' the
+// moment deliveryStatus reaches 'picked_up', and to 'delivered' together with
+// deliveryStatus — everything before that is internal to the delivery flow.
+export const DELIVERY_STATUSES = [
+  'pending',
+  'searching',
+  'assigned',
+  'accepted',
+  'reached_restaurant',
+  'picked_up',
+  'out_for_delivery',
+  'reached_customer',
+  'delivered',
+  'cancelled',
+  'failed',
+  'returned',
 ];
 
 const orderItemSchema = new mongoose.Schema(
@@ -25,6 +47,14 @@ const orderItemSchema = new mongoose.Schema(
 const statusHistorySchema = new mongoose.Schema(
   {
     status: { type: String, enum: ORDER_STATUSES, required: true },
+    at: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const deliveryStatusHistorySchema = new mongoose.Schema(
+  {
+    status: { type: String, enum: DELIVERY_STATUSES, required: true },
     at: { type: Date, default: Date.now },
   },
   { _id: false }
@@ -50,6 +80,7 @@ const orderSchema = new mongoose.Schema(
       line1: String,
       area: String,
       city: String,
+      instructions: { type: String, default: '' },
     },
     paymentMethod: { type: String, enum: ['card', 'upi', 'cod'], default: 'cod' },
     etaMinutes: { type: Number, default: 35 },
@@ -57,6 +88,19 @@ const orderSchema = new mongoose.Schema(
     refundStatus: { type: String, enum: ['none', 'requested', 'approved', 'rejected', 'refunded'], default: 'none' },
     refundAmount: { type: Number, default: 0 },
     refundReason: { type: String, default: '' },
+
+    tip: { type: Number, default: 0 },
+
+    deliveryStatus: { type: String, enum: DELIVERY_STATUSES, default: 'pending' },
+    deliveryStatusHistory: [deliveryStatusHistorySchema],
+    deliveryOtp: { type: String, default: null },
+    deliveryOtpVerified: { type: Boolean, default: false },
+    deliveryProofImage: { type: String, default: '' },
+    deliveryFailReason: { type: String, default: '' },
+    reassignCount: { type: Number, default: 0 },
+    pickedUpAt: { type: Date, default: null },
+    reachedCustomerAt: { type: Date, default: null },
+    deliveredAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

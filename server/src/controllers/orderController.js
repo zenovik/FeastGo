@@ -1,8 +1,12 @@
 import Order, { ORDER_STATUSES } from '../models/Order.js';
 import Restaurant from '../models/Restaurant.js';
 import MenuItem from '../models/MenuItem.js';
+import DeliveryPartner from '../models/DeliveryPartner.js';
+import DeliveryAssignment from '../models/DeliveryAssignment.js';
+import DeliveryRating from '../models/DeliveryRating.js';
+import DeliveryEarning from '../models/DeliveryEarning.js';
 import { ApiError } from '../utils/ApiError.js';
-import { notifySeller, notifyCustomer } from '../utils/notify.js';
+import { notifySeller, notifyCustomer, notifyDeliveryCancelledToPartner, notifyDeliveryPartner } from '../utils/notify.js';
 import { resolveCoupon } from '../utils/coupon.js';
 
 const TAX_RATE = 0.05;
@@ -72,6 +76,7 @@ export async function createOrder(req, res, next) {
     if (appliedCoupon) {
       appliedCoupon.timesUsed += 1;
       await appliedCoupon.save();
+      await notifyCustomer(order, 'coupon_applied', 'Coupon applied', `${appliedCoupon.code} saved you ₹${discount} on this order`);
     }
 
     // Decrement stock for items that track it, and flag anything that just crossed
@@ -110,6 +115,18 @@ export async function createOrder(req, res, next) {
       `Your order #${order._id.toString().slice(-6)} at ${restaurant.name} has been placed — ${paymentMethod === 'cod' ? 'pay on delivery' : 'payment received'}`
     );
 
+    // Payment is simulated inline with order creation (there's no separate
+    // gateway step, so it always "succeeds" once we get this far) — online
+    // methods get their own payment + cashback notifications on top of the
+    // "Order placed" one above; COD has nothing to pay yet.
+    if (paymentMethod && paymentMethod !== 'cod') {
+      await notifyCustomer(order, 'payment', 'Payment successful', `₹${total} paid via ${paymentMethod.toUpperCase()} for order #${order._id.toString().slice(-6)}`);
+      const cashback = Math.floor(total * 0.02);
+      if (cashback > 0) {
+        await notifyCustomer(order, 'cashback_received', 'Cashback received', `You earned ₹${cashback} cashback on order #${order._id.toString().slice(-6)}`);
+      }
+    }
+
     res.status(201).json({ order });
   } catch (err) {
     next(err);
@@ -127,7 +144,10 @@ export async function listMyOrders(req, res, next) {
 
 export async function getOrder(req, res, next) {
   try {
-    const order = await Order.findOne({ _id: req.params.id, user: req.user._id });
+    const order = await Order.findOne({ _id: req.params.id, user: req.user._id }).populate(
+      'deliveryPartner',
+      'name phone photo vehicleType vehicleNumber location rating'
+    );
     if (!order) throw new ApiError(404, 'Order not found');
     res.json({ order });
   } catch (err) {
@@ -139,11 +159,24 @@ export async function cancelOrder(req, res, next) {
   try {
     const order = await Order.findOne({ _id: req.params.id, user: req.user._id });
     if (!order) throw new ApiError(404, 'Order not found');
-    if (['delivered', 'cancelled'].includes(order.status)) {
-      throw new ApiError(400, `Order already ${order.status}`);
+    if (['delivered', 'cancelled', 'out_for_delivery'].includes(order.status)) {
+      throw new ApiError(
+        400,
+        order.status === 'out_for_delivery' ? 'This order has already been picked up and can no longer be cancelled' : `Order already ${order.status}`
+      );
     }
     order.status = 'cancelled';
     order.statusHistory.push({ status: 'cancelled', at: new Date() });
+
+    // Free up the assigned partner (if any) — the order never reached pickup.
+    if (order.deliveryPartner) {
+      await DeliveryAssignment.updateMany({ order: order._id, partner: order.deliveryPartner }, { status: 'cancelled' });
+      await DeliveryPartner.updateOne({ _id: order.deliveryPartner, currentOrder: order._id }, { currentOrder: null });
+      await notifyDeliveryCancelledToPartner(order.deliveryPartner, order, 'Cancelled by customer');
+      order.deliveryPartner = null;
+      order.deliveryStatus = 'cancelled';
+      order.deliveryStatusHistory.push({ status: 'cancelled' });
+    }
     await order.save();
 
     const restaurant = await Restaurant.findById(order.restaurant);
@@ -156,8 +189,50 @@ export async function cancelOrder(req, res, next) {
         order._id
       );
     }
+    await notifyCustomer(order, 'cancelled_order', 'Order cancelled', `Your order #${order._id.toString().slice(-6)} has been cancelled`);
 
     res.json({ order });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function rateDelivery(req, res, next) {
+  try {
+    const { rating, comment, tip } = req.body;
+    const order = await Order.findOne({ _id: req.params.id, user: req.user._id });
+    if (!order) throw new ApiError(404, 'Order not found');
+    if (order.status !== 'delivered') throw new ApiError(400, 'You can only rate delivery after the order is delivered');
+    if (!order.deliveryPartner) throw new ApiError(400, 'This order had no delivery partner');
+
+    const existing = await DeliveryRating.findOne({ order: order._id });
+    if (existing) throw new ApiError(409, 'You have already rated this delivery');
+
+    const ratingValue = Number(rating);
+    if (!Number.isFinite(ratingValue) || ratingValue < 1 || ratingValue > 5) throw new ApiError(400, 'Rating must be between 1 and 5');
+
+    await DeliveryRating.create({ order: order._id, partner: order.deliveryPartner, user: req.user._id, rating: ratingValue, comment: comment || '' });
+
+    const partner = await DeliveryPartner.findById(order.deliveryPartner);
+    if (partner) {
+      const newCount = partner.rating.count + 1;
+      const newAverage = (partner.rating.average * partner.rating.count + ratingValue) / newCount;
+      partner.rating = { average: Math.round(newAverage * 10) / 10, count: newCount };
+      await partner.save();
+      await notifyDeliveryPartner(partner._id, 'rating_received', 'New rating received', `You received a ${ratingValue}-star rating for order #${order._id.toString().slice(-6)}`, order._id);
+    }
+
+    const tipAmount = Number(tip) || 0;
+    if (tipAmount > 0) {
+      order.tip = tipAmount;
+      await order.save();
+      await DeliveryEarning.updateOne(
+        { order: order._id },
+        { $inc: { tip: tipAmount, total: tipAmount } }
+      );
+    }
+
+    res.json({ message: 'Thanks for your feedback!' });
   } catch (err) {
     next(err);
   }

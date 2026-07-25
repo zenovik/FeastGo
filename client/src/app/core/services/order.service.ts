@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
 import { Address } from '../models/user.model';
 import { Order } from '../models/order.model';
+import { OrderMessage } from '../models/message.model';
 
 export interface PlaceOrderPayload {
   restaurantSlug: string;
@@ -31,5 +32,17 @@ export class OrderService {
 
   cancel(id: string) {
     return firstValueFrom(this.http.post<{ order: Order }>(`${API_URL}/orders/${id}/cancel`, {}));
+  }
+
+  rateDelivery(id: string, rating: number, comment: string, tip: number) {
+    return firstValueFrom(this.http.post<{ message: string }>(`${API_URL}/orders/${id}/rate-delivery`, { rating, comment, tip }));
+  }
+
+  listMessages(orderId: string) {
+    return firstValueFrom(this.http.get<{ messages: OrderMessage[] }>(`${API_URL}/orders/${orderId}/messages`));
+  }
+
+  sendMessage(orderId: string, text: string) {
+    return firstValueFrom(this.http.post<{ message: OrderMessage }>(`${API_URL}/orders/${orderId}/messages`, { text }));
   }
 }

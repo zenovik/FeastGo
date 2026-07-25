@@ -59,6 +59,15 @@ type Tab = 'general' | 'commerce' | 'payment' | 'email' | 'sms';
               Tax (%)
               <input type="number" [(ngModel)]="f.taxPercent" name="taxPercent" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
             </label>
+            <p class="pt-2 text-xs font-bold uppercase tracking-wide text-ink-400">Delivery assignment</p>
+            <label class="block text-xs font-semibold text-ink-500">
+              Max reassign attempts before admin alert
+              <input type="number" min="1" [(ngModel)]="f.maxReassignAttempts" name="maxReassignAttempts" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+            </label>
+            <label class="block text-xs font-semibold text-ink-500">
+              Rejections before a partner is flagged for review
+              <input type="number" min="1" [(ngModel)]="f.maxRejectionsBeforeFlag" name="maxRejectionsBeforeFlag" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+            </label>
           }
 
           @if (tab() === 'payment') {

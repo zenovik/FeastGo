@@ -6,12 +6,17 @@ import { ToastContainerComponent } from './shared/components/toast-container/toa
 import { CartDrawerComponent } from './shared/components/cart-drawer/cart-drawer.component';
 import { ConfirmDialogComponent } from './shared/components/confirm-dialog/confirm-dialog.component';
 import { ProductModalComponent } from './shared/components/product-modal/product-modal.component';
+import { AuthService } from './core/services/auth.service';
 import { ScrollRestorationService } from './core/services/scroll-restoration.service';
 
 // Seller/delivery/admin panels are separate applications with their own nav
 // (or none, for their login/signup screens) — they should never show the
 // customer-facing header/cart/footer chrome.
 const ROLE_PANEL_PREFIXES = ['/seller', '/delivery', '/admin'];
+
+// Matches Tailwind's `md` breakpoint — below this, the customer app opens
+// straight to login for a signed-out visitor instead of the home page.
+const MOBILE_BREAKPOINT_PX = 768;
 
 @Component({
   selector: 'app-root',
@@ -48,6 +53,7 @@ export class App {
 
   constructor(
     router: Router,
+    auth: AuthService,
     // Injected only to instantiate it eagerly at bootstrap — its constructor
     // wires up the global scroll-restoration listener (see the service for why
     // this replaces the router's own automatic restoration).
@@ -58,5 +64,27 @@ export class App {
         this.showCustomerChrome.set(!ROLE_PANEL_PREFIXES.some((prefix) => event.urlAfterRedirects.startsWith(prefix)));
       }
     });
+
+    this.redirectMobileToLoginOnOpen(router, auth);
+  }
+
+  // On a mobile-width screen, a signed-out visitor opening the app lands on
+  // /login instead of the home page. Runs once at bootstrap only — it never
+  // interrupts in-app navigation, and never applies to the seller/delivery/admin
+  // panels (they have their own login screens).
+  private async redirectMobileToLoginOnOpen(router: Router, auth: AuthService) {
+    if (typeof window === 'undefined' || window.innerWidth >= MOBILE_BREAKPOINT_PX) return;
+
+    const path = window.location.pathname;
+    if (ROLE_PANEL_PREFIXES.some((prefix) => path.startsWith(prefix)) || path.startsWith('/login')) return;
+
+    if (!auth.initialized()) {
+      await new Promise<void>((resolve) => {
+        const check = () => (auth.initialized() ? resolve() : setTimeout(check, 25));
+        check();
+      });
+    }
+
+    if (!auth.isAuthenticated()) router.navigate(['/login']);
   }
 }
