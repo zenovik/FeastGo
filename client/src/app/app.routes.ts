@@ -57,10 +57,15 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    // Redirects to the same single route entry every section resolves to
+    // below, so switching sections (including the very first click after
+    // landing on bare /settings) never crosses a route-config boundary —
+    // that's what forces Angular to tear down and recreate the component
+    // instead of reusing it, which is what made Security feel like it
+    // "opened as its own page" instead of switching in place like the rest.
     path: 'settings',
-    loadComponent: () => import('./pages/settings/settings.component').then((m) => m.SettingsComponent),
-    title: 'Settings — FeastGo',
-    canActivate: [authGuard],
+    pathMatch: 'full',
+    redirectTo: 'settings/personal',
   },
   {
     path: 'settings/:section',
