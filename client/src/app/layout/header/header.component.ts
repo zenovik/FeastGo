@@ -16,13 +16,13 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
   standalone: true,
   imports: [RouterLink, RouterLinkActive, IconComponent, SearchBarComponent, NotificationBellComponent, NotificationCenterComponent],
   template: `
-    <header class="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur">
+    <header class="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur dark:border-ink-700 dark:bg-ink-900/90">
       <div class="container-shell flex h-16 items-center gap-2 sm:gap-4">
         <a routerLink="/" class="flex shrink-0 items-center gap-2">
           <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-ember-500 text-white">
             <app-icon name="flame" [size]="18" />
           </span>
-          <span class="font-display text-xl font-extrabold tracking-tight text-ink-900">FeastGo</span>
+          <span class="font-display text-xl font-extrabold tracking-tight text-ink-900 dark:text-white">FeastGo</span>
         </a>
 
         <div class="relative hidden shrink-0 sm:block" #locationWrapper>
@@ -136,6 +136,8 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
                 type="button"
                 class="flex items-center gap-1.5 rounded-lg py-1.5 pl-1.5 pr-2 hover:bg-ink-50"
                 (click)="menuOpen.set(!menuOpen())"
+                aria-haspopup="true"
+                [attr.aria-expanded]="menuOpen()"
               >
                 <span
                   class="flex h-8 w-8 items-center justify-center rounded-full bg-ink-800 text-xs font-bold text-white"
@@ -148,24 +150,29 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
               @if (menuOpen()) {
                 <div
                   class="absolute right-0 top-12 w-52 overflow-hidden rounded-xl border border-ink-100 bg-white py-1.5 shadow-[var(--shadow-pop)]"
+                  role="menu"
                   (click)="menuOpen.set(false)"
                 >
                   <div class="border-b border-ink-100 px-4 py-2.5">
                     <p class="truncate text-sm font-semibold text-ink-900">{{ auth.currentUser()?.name }}</p>
                     <p class="truncate text-xs text-ink-400">{{ contactLabel() }}</p>
                   </div>
-                  <a routerLink="/profile" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                  <a routerLink="/profile" routerLinkActive="text-ember-600 bg-ember-50" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" role="menuitem">
                     <app-icon name="user" [size]="16" /> Profile
                   </a>
-                  <a routerLink="/orders" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                  <a routerLink="/orders" routerLinkActive="text-ember-600 bg-ember-50" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" role="menuitem">
                     <app-icon name="package" [size]="16" /> Orders
                   </a>
-                  <a routerLink="/favorites" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+                  <a routerLink="/favorites" routerLinkActive="text-ember-600 bg-ember-50" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" role="menuitem">
                     <app-icon name="heart" [size]="16" /> Bookmarks
+                  </a>
+                  <a routerLink="/settings" routerLinkActive="text-ember-600 bg-ember-50" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" role="menuitem">
+                    <app-icon name="settings" [size]="16" /> Settings
                   </a>
                   <button
                     type="button"
                     class="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-ember-600 hover:bg-ember-50"
+                    role="menuitem"
                     (click)="logout()"
                   >
                     <app-icon name="log-out" [size]="16" /> Sign out
@@ -255,11 +262,14 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
                 }
 
                 @if (auth.isAuthenticated()) {
-                  <a routerLink="/profile" class="flex items-center gap-2.5 border-t border-ink-100 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" (click)="mobileNavOpen.set(false)">
+                  <a routerLink="/profile" routerLinkActive="text-ember-600" class="flex items-center gap-2.5 border-t border-ink-100 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" (click)="mobileNavOpen.set(false)">
                     <app-icon name="user" [size]="16" /> Profile
                   </a>
-                  <a routerLink="/favorites" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" (click)="mobileNavOpen.set(false)">
+                  <a routerLink="/favorites" routerLinkActive="text-ember-600" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" (click)="mobileNavOpen.set(false)">
                     <app-icon name="heart" [size]="16" /> Bookmarks
+                  </a>
+                  <a routerLink="/settings" routerLinkActive="text-ember-600" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" (click)="mobileNavOpen.set(false)">
+                    <app-icon name="settings" [size]="16" /> Settings
                   </a>
                   <button
                     type="button"
@@ -319,6 +329,13 @@ export class HeaderComponent implements OnInit, OnDestroy {
     if (this.mobileNavOpen() && !this.mobileNavWrapper?.nativeElement.contains(target)) {
       this.mobileNavOpen.set(false);
     }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape() {
+    this.menuOpen.set(false);
+    this.locationOpen.set(false);
+    this.mobileNavOpen.set(false);
   }
 
   ngOnInit() {

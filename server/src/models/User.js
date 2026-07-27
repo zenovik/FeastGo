@@ -17,6 +17,29 @@ const addressSchema = new mongoose.Schema(
   { _id: true, timestamps: false }
 );
 
+const savedCardSchema = new mongoose.Schema(
+  {
+    label: { type: String, default: '' },
+    brand: { type: String, default: '' },
+    // Only ever the last 4 digits — this app has no real payment gateway, and
+    // even in a demo, a full card number/CVV is never something to collect or
+    // store. Mirrors how a real integration would only keep a token + last4
+    // after the gateway itself handles the sensitive part.
+    last4: { type: String, required: true, match: /^\d{4}$/ },
+    expiryMonth: { type: Number, required: true, min: 1, max: 12 },
+    expiryYear: { type: Number, required: true },
+  },
+  { _id: true, timestamps: false }
+);
+
+const savedUpiSchema = new mongoose.Schema(
+  {
+    label: { type: String, default: '' },
+    upiId: { type: String, required: true, trim: true },
+  },
+  { _id: true, timestamps: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -42,14 +65,68 @@ const userSchema = new mongoose.Schema(
     addresses: [addressSchema],
     favoriteRestaurants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant' }],
     isBlocked: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
+
+    notificationPrefs: {
+      orderUpdates: { type: Boolean, default: true },
+      promotional: { type: Boolean, default: true },
+      offers: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true },
+    },
+    // 'system' resolves to the browser's prefers-color-scheme on the client;
+    // stored here purely so the choice follows the user across devices.
+    theme: { type: String, enum: ['light', 'dark', 'system'], default: 'system' },
+    language: { type: String, default: 'en' },
+    savedCards: [savedCardSchema],
+    savedUpi: [savedUpiSchema],
   },
   { timestamps: true }
 );
 
 userSchema.methods.toSafeObject = function toSafeObject() {
-  const { _id, name, email, phone, dob, gender, photo, location, role, adminRole, addresses, favoriteRestaurants, isBlocked, createdAt } =
-    this;
-  return { id: _id, name, email, phone, dob, gender, photo, location, role, adminRole, addresses, favoriteRestaurants, isBlocked, createdAt };
+  const {
+    _id,
+    name,
+    email,
+    phone,
+    dob,
+    gender,
+    photo,
+    location,
+    role,
+    adminRole,
+    addresses,
+    favoriteRestaurants,
+    isBlocked,
+    notificationPrefs,
+    theme,
+    language,
+    savedCards,
+    savedUpi,
+    createdAt,
+  } = this;
+  return {
+    id: _id,
+    name,
+    email,
+    phone,
+    dob,
+    gender,
+    photo,
+    location,
+    role,
+    adminRole,
+    addresses,
+    favoriteRestaurants,
+    isBlocked,
+    notificationPrefs,
+    theme,
+    language,
+    savedCards,
+    savedUpi,
+    createdAt,
+  };
 };
 
 export default mongoose.model('User', userSchema);

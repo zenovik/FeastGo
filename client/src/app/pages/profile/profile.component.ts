@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, ViewChild, signal } from '@angular/core';
+import { Component, Input, ViewChild, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Address, Gender, User } from '../../core/models/user.model';
@@ -44,11 +44,14 @@ function maxDobIso(): string {
   standalone: true,
   imports: [FormsModule, IconComponent, MobileFieldComponent, ImageUploadComponent, DatePipe],
   template: `
-    <div class="container-shell max-w-xl py-10">
-      <h1 class="font-display text-2xl font-bold text-ink-900">Your profile</h1>
+    <div [class.container-shell]="!embedded" [class.max-w-xl]="!embedded" [class.py-10]="!embedded">
+      @if (!embedded) {
+        <h1 class="font-display text-2xl font-bold text-ink-900">Your profile</h1>
+      }
 
       @if (auth.currentUser(); as u) {
-        <div class="card-surface mt-6 flex items-start gap-4 p-5">
+        @if (showPersonalInfo) {
+        <div class="card-surface flex items-start gap-4 p-5" [class.mt-6]="!embedded">
           <div class="relative shrink-0">
             @if (editingProfile()) {
               <app-image-upload
@@ -275,8 +278,10 @@ function maxDobIso(): string {
             </button>
           }
         </div>
+        }
 
-        <div class="mt-6 flex items-center justify-between">
+        @if (showAddresses) {
+        <div class="flex items-center justify-between" [class.mt-6]="!embedded">
           <h2 class="font-display text-base font-bold text-ink-900">Saved addresses</h2>
           <button type="button" class="text-sm font-semibold text-ember-600" (click)="toggleAddressForm()">
             {{ showForm() ? 'Cancel' : '+ Add address' }}
@@ -293,10 +298,20 @@ function maxDobIso(): string {
                   <p class="text-xs text-ink-400">Landmark: {{ addr.landmark }}</p>
                 }
                 <p class="text-xs text-ink-400">{{ addr.state }} {{ addr.zip }} @if (addr.phone) { · {{ addr.phone }} }</p>
+                @if (!addr.isDefault) {
+                  <button type="button" class="mt-1.5 text-xs font-bold text-ember-600" (click)="setDefaultAddress(addr._id)">
+                    Set as default
+                  </button>
+                }
               </div>
-              <button type="button" class="text-ink-300 hover:text-ember-600" (click)="removeAddress(addr._id)">
-                <app-icon name="trash" [size]="16" />
-              </button>
+              <div class="flex shrink-0 gap-1">
+                <button type="button" class="text-ink-300 hover:text-ember-600" (click)="startEditAddress(addr)" aria-label="Edit address">
+                  <app-icon name="edit" [size]="16" />
+                </button>
+                <button type="button" class="text-ink-300 hover:text-ember-600" (click)="removeAddress(addr._id)" aria-label="Delete address">
+                  <app-icon name="trash" [size]="16" />
+                </button>
+              </div>
             </div>
           } @empty {
             <p class="text-sm text-ink-400">No saved addresses yet.</p>
@@ -304,7 +319,7 @@ function maxDobIso(): string {
         </div>
 
         @if (showForm()) {
-          <form class="card-surface mt-3 space-y-2 p-4" (submit)="addAddress($event)">
+          <form class="card-surface mt-3 space-y-2 p-4" (submit)="saveAddress($event)">
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <select [(ngModel)]="newAddress.label" name="label" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400">
@@ -398,23 +413,35 @@ function maxDobIso(): string {
             </div>
 
             <button type="submit" [disabled]="savingAddress()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-              {{ savingAddress() ? 'Saving…' : 'Save address' }}
+              {{ savingAddress() ? 'Saving…' : editingAddressId() ? 'Update address' : 'Save address' }}
             </button>
           </form>
         }
+        }
 
+        @if (showSignOut) {
         <button
           type="button"
-          class="mt-8 flex items-center gap-2 text-sm font-semibold text-ember-600 hover:text-ember-700"
+          class="flex items-center gap-2 text-sm font-semibold text-ember-600 hover:text-ember-700"
+          [class.mt-8]="!embedded"
           (click)="logout()"
         >
           <app-icon name="log-out" [size]="16" /> Sign out
         </button>
+        }
       }
     </div>
   `,
 })
 export class ProfileComponent {
+  // Lets Settings embed just the Personal Information or Address Management
+  // section (reusing this same validated logic) instead of the full page —
+  // the standalone /profile route uses every default (all sections, own header/spacing).
+  @Input() embedded = false;
+  @Input() showPersonalInfo = true;
+  @Input() showAddresses = true;
+  @Input() showSignOut = true;
+
   genderOptions = GENDER_OPTIONS;
   addressTypes = ADDRESS_TYPES;
   maxDob = maxDobIso();
@@ -668,6 +695,8 @@ export class ProfileComponent {
     }
   }
 
+  editingAddressId = signal<string | null>(null);
+
   toggleAddressForm() {
     if (this.showForm()) {
       this.showForm.set(false);
@@ -675,7 +704,30 @@ export class ProfileComponent {
     }
     this.newAddress = { ...EMPTY_ADDRESS_FORM };
     this.addressErrors.set({});
+    this.editingAddressId.set(null);
     this.showForm.set(true);
+  }
+
+  startEditAddress(addr: Address) {
+    this.newAddress = {
+      label: addr.label,
+      line1: addr.line1,
+      landmark: addr.landmark ?? '',
+      area: addr.area ?? '',
+      city: addr.city,
+      state: addr.state ?? '',
+      zip: addr.zip ?? '',
+      phone: addr.phone ?? '',
+    };
+    this.addressErrors.set({});
+    this.editingAddressId.set(addr._id ?? null);
+    this.showForm.set(true);
+  }
+
+  async setDefaultAddress(id?: string) {
+    if (!id) return;
+    await this.auth.setDefaultAddress(id);
+    this.toast.success('Default address updated');
   }
 
   onZipInput(e: Event) {
@@ -691,12 +743,17 @@ export class ProfileComponent {
     const line1 = this.newAddress.line1.trim().toLowerCase();
     const city = this.newAddress.city.trim().toLowerCase();
     const zip = this.newAddress.zip.trim();
+    const editingId = this.editingAddressId();
     return u.addresses.some(
-      (a) => a.line1.trim().toLowerCase() === line1 && a.city.trim().toLowerCase() === city && (a.zip ?? '').trim() === zip
+      (a) =>
+        a._id !== editingId &&
+        a.line1.trim().toLowerCase() === line1 &&
+        a.city.trim().toLowerCase() === city &&
+        (a.zip ?? '').trim() === zip
     );
   }
 
-  async addAddress(e: Event) {
+  async saveAddress(e: Event) {
     e.preventDefault();
     const errors: Partial<Record<keyof NewAddressForm, string>> = {};
     if (!this.newAddress.line1.trim()) errors.line1 = 'Address line is required.';
@@ -718,22 +775,31 @@ export class ProfileComponent {
       return;
     }
 
+    const payload = {
+      label: this.newAddress.label,
+      line1: this.newAddress.line1.trim(),
+      landmark: this.newAddress.landmark.trim(),
+      area: this.newAddress.area.trim(),
+      city: this.newAddress.city.trim(),
+      state: this.newAddress.state.trim(),
+      zip: this.newAddress.zip.trim(),
+      phone: normalizeMobile(this.newAddress.phone),
+    } as Address;
+
     this.savingAddress.set(true);
     try {
-      await this.auth.addAddress({
-        label: this.newAddress.label,
-        line1: this.newAddress.line1.trim(),
-        landmark: this.newAddress.landmark.trim(),
-        area: this.newAddress.area.trim(),
-        city: this.newAddress.city.trim(),
-        state: this.newAddress.state.trim(),
-        zip: this.newAddress.zip.trim(),
-        phone: normalizeMobile(this.newAddress.phone),
-      } as Address);
+      const editingId = this.editingAddressId();
+      if (editingId) {
+        await this.auth.updateAddress(editingId, payload);
+        this.toast.success('Address updated');
+      } else {
+        await this.auth.addAddress(payload);
+        this.toast.success('Address added');
+      }
       this.newAddress = { ...EMPTY_ADDRESS_FORM };
       this.addressErrors.set({});
+      this.editingAddressId.set(null);
       this.showForm.set(false);
-      this.toast.success('Address added');
     } catch (err: any) {
       this.toast.error(err?.error?.message ?? 'Could not save address');
     } finally {

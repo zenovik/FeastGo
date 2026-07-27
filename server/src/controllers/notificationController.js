@@ -63,7 +63,17 @@ export async function broadcastNotification(req, res, next) {
     } else {
       if (!RECIPIENT_MODELS[audience]) throw new ApiError(400, 'Invalid audience');
       for (const { role, Model, filter } of RECIPIENT_MODELS[audience]) {
-        const accounts = await Model.find(filter).select('_id');
+        // Customers can opt out of promotional/festival broadcasts from their
+        // own Settings — `$ne: false` treats missing/legacy docs (predating
+        // this field) as still opted in, matching the schema's own default.
+        // A fresh object here, never mutating the shared static `filter`.
+        let effectiveFilter = filter;
+        if (role === 'customer' && category === 'promotional') {
+          effectiveFilter = { ...filter, 'notificationPrefs.promotional': { $ne: false } };
+        } else if (role === 'customer' && category === 'festival') {
+          effectiveFilter = { ...filter, 'notificationPrefs.offers': { $ne: false } };
+        }
+        const accounts = await Model.find(effectiveFilter).select('_id');
         recipients.push(...accounts.map((a) => ({ role, id: a._id })));
       }
     }

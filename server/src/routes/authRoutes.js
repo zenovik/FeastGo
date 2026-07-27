@@ -15,6 +15,15 @@ import {
   getFavorites,
   addAddress,
   removeAddress,
+  updateAddress,
+  setDefaultAddress,
+  addSavedCard,
+  removeSavedCard,
+  addSavedUpi,
+  removeSavedUpi,
+  exportMyData,
+  deleteAccount,
+  submitSupportRequest,
 } from '../controllers/authController.js';
 import { requireAuth } from '../middleware/auth.js';
 import {
@@ -44,7 +53,16 @@ router.post('/me/email/verify-otp', requireAuth, verifyEmailChangeOtp);
 router.get('/me/favorites', requireAuth, getFavorites);
 router.post('/me/favorites/:restaurantId', requireAuth, toggleFavorite);
 router.post('/me/addresses', requireAuth, addAddress);
+router.patch('/me/addresses/:addressId', requireAuth, updateAddress);
 router.delete('/me/addresses/:addressId', requireAuth, removeAddress);
+router.patch('/me/addresses/:addressId/default', requireAuth, setDefaultAddress);
+router.post('/me/cards', requireAuth, addSavedCard);
+router.delete('/me/cards/:cardId', requireAuth, removeSavedCard);
+router.post('/me/upi', requireAuth, addSavedUpi);
+router.delete('/me/upi/:upiId', requireAuth, removeSavedUpi);
+router.get('/me/export-data', requireAuth, exportMyData);
+router.post('/me/delete-account', requireAuth, deleteAccount);
+router.post('/me/support-request', requireAuth, submitSupportRequest);
 router.get('/me/notifications', requireAuth, listMyNotifications);
 router.patch('/me/notifications/:id/read', requireAuth, markNotificationRead);
 router.patch('/me/notifications/read-all', requireAuth, markAllNotificationsRead);

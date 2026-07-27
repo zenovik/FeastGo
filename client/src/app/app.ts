@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, effect, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { HeaderComponent } from './layout/header/header.component';
 import { FooterComponent } from './layout/footer/footer.component';
@@ -8,6 +8,7 @@ import { ConfirmDialogComponent } from './shared/components/confirm-dialog/confi
 import { ProductModalComponent } from './shared/components/product-modal/product-modal.component';
 import { AuthService } from './core/services/auth.service';
 import { ScrollRestorationService } from './core/services/scroll-restoration.service';
+import { ThemeService } from './core/services/theme.service';
 
 // Seller/delivery/admin panels are separate applications with their own nav
 // (or none, for their login/signup screens) — they should never show the
@@ -32,7 +33,7 @@ const MOBILE_BREAKPOINT_PX = 768;
   ],
   template: `
     @if (showCustomerChrome()) {
-      <div class="flex min-h-screen flex-col">
+      <div class="flex min-h-screen flex-col" [class.dark]="theme.dark()">
         <app-header />
         <main class="flex-1">
           <router-outlet />
@@ -54,6 +55,7 @@ export class App {
   constructor(
     router: Router,
     auth: AuthService,
+    public theme: ThemeService,
     // Injected only to instantiate it eagerly at bootstrap — its constructor
     // wires up the global scroll-restoration listener (see the service for why
     // this replaces the router's own automatic restoration).
@@ -63,6 +65,11 @@ export class App {
       if (event instanceof NavigationEnd) {
         this.showCustomerChrome.set(!ROLE_PANEL_PREFIXES.some((prefix) => event.urlAfterRedirects.startsWith(prefix)));
       }
+    });
+
+    effect(() => {
+      const serverTheme = auth.currentUser()?.theme;
+      if (serverTheme) theme.syncFromServer(serverTheme);
     });
 
     this.redirectMobileToLoginOnOpen(router, auth);

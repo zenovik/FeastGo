@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Restaurant from '../models/Restaurant.js';
 import Review from '../models/Review.js';
+import Order from '../models/Order.js';
 import { signToken } from '../utils/token.js';
 import { ApiError } from '../utils/ApiError.js';
 import { issueOtp, checkOtp, isPhoneVerified, clearOtp, devOtpField } from '../utils/otpStore.js';
@@ -229,6 +230,21 @@ export async function updateProfile(req, res, next) {
         req.user.location = { lat, lng };
       }
     }
+    if (req.body.notificationPrefs !== undefined) {
+      const prefs = req.body.notificationPrefs ?? {};
+      for (const key of ['orderUpdates', 'promotional', 'offers', 'email', 'push']) {
+        if (prefs[key] !== undefined) req.user.notificationPrefs[key] = !!prefs[key];
+      }
+    }
+    if (req.body.theme !== undefined) {
+      if (!['light', 'dark', 'system'].includes(req.body.theme)) throw new ApiError(400, 'Invalid theme value');
+      req.user.theme = req.body.theme;
+    }
+    if (req.body.language !== undefined) {
+      const language = String(req.body.language ?? '').trim();
+      if (!language) throw new ApiError(400, 'Language is required.');
+      req.user.language = language;
+    }
     await req.user.save();
     // Reviews store a name snapshot at write time (see Review.userName) rather
     // than live-populating the author on every read — keep past reviews in
@@ -364,24 +380,30 @@ export async function getFavorites(req, res, next) {
   }
 }
 
+function validateAddressInput(body) {
+  const label = String(body.label ?? '').trim();
+  const line1 = String(body.line1 ?? '').trim();
+  const area = String(body.area ?? '').trim();
+  const landmark = String(body.landmark ?? '').trim();
+  const city = String(body.city ?? '').trim();
+  const state = String(body.state ?? '').trim();
+  const zip = String(body.zip ?? '').trim();
+  const phone = assertValidMobile(body.phone);
+  const { lat, lng, isDefault } = body;
+
+  if (!label) throw new ApiError(400, 'Address type is required.');
+  if (!line1) throw new ApiError(400, 'Address line is required.');
+  if (!landmark) throw new ApiError(400, 'Landmark is required.');
+  if (!city) throw new ApiError(400, 'City is required.');
+  if (!state) throw new ApiError(400, 'State is required.');
+  if (!/^\d{6}$/.test(zip)) throw new ApiError(400, 'Pincode must be exactly 6 digits.');
+
+  return { label, line1, area, landmark, city, state, zip, phone, lat, lng, isDefault };
+}
+
 export async function addAddress(req, res, next) {
   try {
-    const label = String(req.body.label ?? '').trim();
-    const line1 = String(req.body.line1 ?? '').trim();
-    const area = String(req.body.area ?? '').trim();
-    const landmark = String(req.body.landmark ?? '').trim();
-    const city = String(req.body.city ?? '').trim();
-    const state = String(req.body.state ?? '').trim();
-    const zip = String(req.body.zip ?? '').trim();
-    const phone = assertValidMobile(req.body.phone);
-    const { lat, lng, isDefault } = req.body;
-
-    if (!label) throw new ApiError(400, 'Address type is required.');
-    if (!line1) throw new ApiError(400, 'Address line is required.');
-    if (!landmark) throw new ApiError(400, 'Landmark is required.');
-    if (!city) throw new ApiError(400, 'City is required.');
-    if (!state) throw new ApiError(400, 'State is required.');
-    if (!/^\d{6}$/.test(zip)) throw new ApiError(400, 'Pincode must be exactly 6 digits.');
+    const { label, line1, area, landmark, city, state, zip, phone, lat, lng, isDefault } = validateAddressInput(req.body);
 
     const isDuplicate = req.user.addresses.some(
       (a) =>
@@ -414,6 +436,181 @@ export async function removeAddress(req, res, next) {
     req.user.addresses = req.user.addresses.filter((a) => a._id.toString() !== req.params.addressId);
     await req.user.save();
     res.json({ user: req.user.toSafeObject() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateAddress(req, res, next) {
+  try {
+    const address = req.user.addresses.id(req.params.addressId);
+    if (!address) throw new ApiError(404, 'Address not found');
+
+    const { label, line1, area, landmark, city, state, zip, phone, lat, lng, isDefault } = validateAddressInput(req.body);
+
+    const isDuplicate = req.user.addresses.some(
+      (a) =>
+        a._id.toString() !== req.params.addressId &&
+        a.line1.trim().toLowerCase() === line1.toLowerCase() &&
+        a.city.trim().toLowerCase() === city.toLowerCase() &&
+        (a.zip ?? '').trim() === zip
+    );
+    if (isDuplicate) throw new ApiError(409, 'This address already exists in your saved addresses.');
+
+    if (isDefault) {
+      req.user.addresses.forEach((a) => (a.isDefault = false));
+    }
+    Object.assign(address, { label, line1, area, landmark, city, state, zip, phone, lat, lng, isDefault: !!isDefault });
+    await req.user.save();
+    res.json({ user: req.user.toSafeObject() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function setDefaultAddress(req, res, next) {
+  try {
+    const address = req.user.addresses.id(req.params.addressId);
+    if (!address) throw new ApiError(404, 'Address not found');
+    req.user.addresses.forEach((a) => (a.isDefault = a._id.toString() === req.params.addressId));
+    await req.user.save();
+    res.json({ user: req.user.toSafeObject() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const CARD_BRANDS = ['visa', 'mastercard', 'rupay', 'amex', 'discover', 'other'];
+
+// Never accepts a full card number or CVV — only the last 4 digits, mirroring
+// how a real gateway integration would tokenize the card and hand back just
+// enough to display it, never the sensitive part.
+export async function addSavedCard(req, res, next) {
+  try {
+    const label = String(req.body.label ?? '').trim();
+    const brand = String(req.body.brand ?? '').trim().toLowerCase();
+    const last4 = String(req.body.last4 ?? '').trim();
+    const expiryMonth = Number(req.body.expiryMonth);
+    const expiryYear = Number(req.body.expiryYear);
+
+    if (!/^\d{4}$/.test(last4)) throw new ApiError(400, 'Enter the last 4 digits of the card.');
+    if (!CARD_BRANDS.includes(brand)) throw new ApiError(400, 'Select a card network.');
+    if (!Number.isInteger(expiryMonth) || expiryMonth < 1 || expiryMonth > 12) throw new ApiError(400, 'Enter a valid expiry month.');
+    const now = new Date();
+    if (!Number.isInteger(expiryYear) || expiryYear < now.getFullYear() || (expiryYear === now.getFullYear() && expiryMonth < now.getMonth() + 1)) {
+      throw new ApiError(400, 'This card has already expired.');
+    }
+
+    req.user.savedCards.push({ label, brand, last4, expiryMonth, expiryYear });
+    await req.user.save();
+    res.status(201).json({ user: req.user.toSafeObject() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function removeSavedCard(req, res, next) {
+  try {
+    req.user.savedCards = req.user.savedCards.filter((c) => c._id.toString() !== req.params.cardId);
+    await req.user.save();
+    res.json({ user: req.user.toSafeObject() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const UPI_REGEX = /^[\w.-]{2,256}@[a-zA-Z][a-zA-Z0-9]{2,64}$/;
+
+export async function addSavedUpi(req, res, next) {
+  try {
+    const label = String(req.body.label ?? '').trim();
+    const upiId = String(req.body.upiId ?? '').trim();
+    if (!UPI_REGEX.test(upiId)) throw new ApiError(400, 'Enter a valid UPI ID (e.g. name@bank).');
+
+    const isDuplicate = req.user.savedUpi.some((u) => u.upiId.toLowerCase() === upiId.toLowerCase());
+    if (isDuplicate) throw new ApiError(409, 'This UPI ID is already saved.');
+
+    req.user.savedUpi.push({ label, upiId });
+    await req.user.save();
+    res.status(201).json({ user: req.user.toSafeObject() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function removeSavedUpi(req, res, next) {
+  try {
+    req.user.savedUpi = req.user.savedUpi.filter((u) => u._id.toString() !== req.params.upiId);
+    await req.user.save();
+    res.json({ user: req.user.toSafeObject() });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function exportMyData(req, res, next) {
+  try {
+    const [orders, reviews] = await Promise.all([
+      Order.find({ user: req.user._id }).lean(),
+      Review.find({ user: req.user._id }).lean(),
+    ]);
+    res.json({
+      exportedAt: new Date().toISOString(),
+      profile: req.user.toSafeObject(),
+      orders,
+      reviews,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Soft-deletes: PII is wiped and the account is blocked from logging back in,
+// but the document itself stays so historical Orders/Reviews (which reference
+// it by id, and always live-populate name — see the profile-rename sync
+// above) keep resolving instead of pointing at a dangling id.
+export async function deleteAccount(req, res, next) {
+  try {
+    const confirmation = String(req.body.confirmation ?? '');
+    if (confirmation !== 'DELETE') throw new ApiError(400, 'Type DELETE to confirm account deletion.');
+
+    req.user.name = 'Deleted User';
+    // Assigning undefined (not null) so these are genuinely absent afterward —
+    // both fields carry a sparse unique index, and an explicit null would
+    // collide with every other deleted account under it.
+    req.user.email = undefined;
+    req.user.phone = undefined;
+    req.user.photo = null;
+    req.user.dob = null;
+    req.user.gender = null;
+    req.user.addresses = [];
+    req.user.savedCards = [];
+    req.user.savedUpi = [];
+    req.user.favoriteRestaurants = [];
+    req.user.isBlocked = true;
+    req.user.deletedAt = new Date();
+    await req.user.save();
+
+    res.clearCookie('feastgo_token');
+    res.json({ message: 'Your account has been deleted.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function submitSupportRequest(req, res, next) {
+  try {
+    const subject = String(req.body.subject ?? '').trim();
+    const message = String(req.body.message ?? '').trim();
+    if (!subject) throw new ApiError(400, 'Subject is required.');
+    if (!message) throw new ApiError(400, 'Message is required.');
+
+    await notifyAdmins(
+      'user_report',
+      `Support request: ${subject}`,
+      `${req.user.name} (${req.user.phone || req.user.email}) wrote: ${message}`
+    );
+    res.status(201).json({ message: 'Your message has been sent to our support team.' });
   } catch (err) {
     next(err);
   }

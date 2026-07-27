@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
-import { Address, Gender, User } from '../models/user.model';
+import { Address, Gender, NotificationPrefs, ThemeMode, User } from '../models/user.model';
 import { Restaurant } from '../models/restaurant.model';
 import { clearStoredToken, getStoredToken, replaceStoredToken, setStoredToken } from '../utils/token-storage';
 import { requestWithProgress } from '../../shared/utils/http-progress';
@@ -95,6 +95,9 @@ export class AuthService {
       dob?: string | null;
       photo?: string | null;
       location?: { lat: number; lng: number } | null;
+      notificationPrefs?: Partial<NotificationPrefs>;
+      theme?: ThemeMode;
+      language?: string;
     },
     onProgress?: (pct: number) => void
   ) {
@@ -167,6 +170,57 @@ export class AuthService {
     const res = await firstValueFrom(this.http.delete<{ user: User }>(`${API_URL}/auth/me/addresses/${addressId}`));
     this.currentUserSig.set(res.user);
     return res.user;
+  }
+
+  async updateAddress(addressId: string, address: Address) {
+    const res = await firstValueFrom(this.http.patch<{ user: User }>(`${API_URL}/auth/me/addresses/${addressId}`, address));
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  async setDefaultAddress(addressId: string) {
+    const res = await firstValueFrom(this.http.patch<{ user: User }>(`${API_URL}/auth/me/addresses/${addressId}/default`, {}));
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  async addSavedCard(card: { label: string; brand: string; last4: string; expiryMonth: number; expiryYear: number }) {
+    const res = await firstValueFrom(this.http.post<{ user: User }>(`${API_URL}/auth/me/cards`, card));
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  async removeSavedCard(cardId: string) {
+    const res = await firstValueFrom(this.http.delete<{ user: User }>(`${API_URL}/auth/me/cards/${cardId}`));
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  async addSavedUpi(upi: { label: string; upiId: string }) {
+    const res = await firstValueFrom(this.http.post<{ user: User }>(`${API_URL}/auth/me/upi`, upi));
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  async removeSavedUpi(upiId: string) {
+    const res = await firstValueFrom(this.http.delete<{ user: User }>(`${API_URL}/auth/me/upi/${upiId}`));
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  exportMyData() {
+    return firstValueFrom(this.http.get<{ exportedAt: string; profile: User; orders: unknown[]; reviews: unknown[] }>(`${API_URL}/auth/me/export-data`));
+  }
+
+  async deleteAccount(confirmation: string) {
+    const res = await firstValueFrom(this.http.post<{ message: string }>(`${API_URL}/auth/me/delete-account`, { confirmation }));
+    clearStoredToken(TOKEN_KEY);
+    this.currentUserSig.set(null);
+    return res;
+  }
+
+  submitSupportRequest(subject: string, message: string) {
+    return firstValueFrom(this.http.post<{ message: string }>(`${API_URL}/auth/me/support-request`, { subject, message }));
   }
 
   private persist(res: AuthResponse, remember: boolean) {

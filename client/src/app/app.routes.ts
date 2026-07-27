@@ -57,6 +57,18 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'settings',
+    loadComponent: () => import('./pages/settings/settings.component').then((m) => m.SettingsComponent),
+    title: 'Settings — FeastGo',
+    canActivate: [authGuard],
+  },
+  {
+    path: 'settings/:section',
+    loadComponent: () => import('./pages/settings/settings.component').then((m) => m.SettingsComponent),
+    title: 'Settings — FeastGo',
+    canActivate: [authGuard],
+  },
+  {
     path: 'login',
     loadComponent: () => import('./pages/auth/login/login.component').then((m) => m.LoginComponent),
     title: 'Log in — FeastGo',
