@@ -33,7 +33,7 @@ const MOBILE_BREAKPOINT_PX = 768;
   ],
   template: `
     @if (showCustomerChrome()) {
-      <div class="flex min-h-screen flex-col" [class.dark]="theme.dark()">
+      <div class="flex min-h-screen flex-col bg-ink-50 text-ink-800 dark:bg-ink-900 dark:text-ink-100" [class.dark]="theme.dark()">
         <app-header />
         <main class="flex-1">
           <router-outlet />

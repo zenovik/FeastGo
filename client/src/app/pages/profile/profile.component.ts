@@ -46,7 +46,7 @@ function maxDobIso(): string {
   template: `
     <div [class.container-shell]="!embedded" [class.max-w-xl]="!embedded" [class.py-10]="!embedded">
       @if (!embedded) {
-        <h1 class="font-display text-2xl font-bold text-ink-900">Your profile</h1>
+        <h1 class="font-display text-2xl font-bold text-ink-900 dark:text-white">Your profile</h1>
       }
 
       @if (auth.currentUser(); as u) {
@@ -77,16 +77,16 @@ function maxDobIso(): string {
           </div>
           <div class="flex-1">
             @if (!editingProfile()) {
-              <p class="font-display text-lg font-bold text-ink-900">{{ u.name }}</p>
-              <p class="mt-0.5 text-sm text-ink-400">{{ u.phone }}</p>
+              <p class="font-display text-lg font-bold text-ink-900 dark:text-white">{{ u.name }}</p>
+              <p class="mt-0.5 text-sm text-ink-400 dark:text-ink-500">{{ u.phone }}</p>
               @if (u.email) {
-                <p class="mt-0.5 text-sm text-ink-400">{{ u.email }}</p>
+                <p class="mt-0.5 text-sm text-ink-400 dark:text-ink-500">{{ u.email }}</p>
               }
               @if (u.dob) {
-                <p class="mt-0.5 text-sm text-ink-400">DOB: {{ u.dob | date: 'mediumDate' }}</p>
+                <p class="mt-0.5 text-sm text-ink-400 dark:text-ink-500">DOB: {{ u.dob | date: 'mediumDate' }}</p>
               }
               @if (u.gender) {
-                <p class="mt-0.5 text-sm capitalize text-ink-400">{{ genderLabel(u.gender) }}</p>
+                <p class="mt-0.5 text-sm capitalize text-ink-400 dark:text-ink-500">{{ genderLabel(u.gender) }}</p>
               }
             } @else {
               <form class="space-y-2" (submit)="saveProfile($event)">
@@ -97,7 +97,7 @@ function maxDobIso(): string {
                     (input)="onNameInput($event)"
                     (blur)="touchedName.set(true)"
                     placeholder="Full name"
-                    class="w-full rounded-lg border px-3 py-2 text-sm outline-none transition"
+                    class="w-full rounded-lg border px-3 py-2 text-sm outline-none transition dark:bg-ink-900 dark:text-white"
                     [class.border-ink-200]="!showNameError()"
                     [class.focus:border-ember-400]="!showNameError()"
                     [class.border-ember-500]="showNameError()"
@@ -160,8 +160,8 @@ function maxDobIso(): string {
                 </div>
 
                 @if (changingField(); as field) {
-                  <div class="space-y-2 rounded-lg border border-ink-200 bg-ink-50 p-3">
-                    <p class="text-xs font-semibold text-ink-600">
+                  <div class="space-y-2 rounded-lg border border-ink-200 bg-ink-50 p-3 dark:border-ink-700 dark:bg-ink-900/40">
+                    <p class="text-xs font-semibold text-ink-600 dark:text-ink-300">
                       Enter the code sent to your {{ field === 'phone' ? 'new phone number' : 'new email' }}
                     </p>
                     @if (changeError()) {
@@ -195,19 +195,19 @@ function maxDobIso(): string {
                         [(ngModel)]="changeCode"
                         name="changeCode"
                         placeholder="4-digit code"
-                        class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400"
+                        class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white"
                       />
                       <button
                         type="button"
                         [disabled]="changeSubmitting()"
-                        class="shrink-0 rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                        class="shrink-0 rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900"
                         (click)="submitChangeOtp()"
                       >
                         {{ changeSubmitting() ? 'Verifying…' : 'Verify' }}
                       </button>
                       <button
                         type="button"
-                        class="shrink-0 rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold text-ink-500"
+                        class="shrink-0 rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold text-ink-500 dark:border-ink-700 dark:text-ink-400"
                         (click)="cancelChange()"
                       >
                         Cancel
@@ -215,7 +215,7 @@ function maxDobIso(): string {
                     </div>
                     <button
                       type="button"
-                      class="text-xs font-bold text-ember-600 disabled:text-ink-300"
+                      class="text-xs font-bold text-ember-600 disabled:text-ink-300 dark:disabled:text-ink-600"
                       [disabled]="changeResendCooldown() > 0"
                       (click)="resendChangeOtp()"
                     >
@@ -225,14 +225,14 @@ function maxDobIso(): string {
                 }
 
                 <div>
-                  <label class="mb-1 block text-xs font-semibold text-ink-500">Date of birth</label>
+                  <label class="mb-1 block text-xs font-semibold text-ink-500 dark:text-ink-400">Date of birth</label>
                   <input
                     type="date"
                     [(ngModel)]="editDob"
                     name="editDob"
                     (blur)="touchedDob.set(true)"
                     [max]="maxDob"
-                    class="w-full rounded-lg border px-3 py-2 text-sm outline-none transition"
+                    class="w-full rounded-lg border px-3 py-2 text-sm outline-none transition dark:bg-ink-900 dark:text-white"
                     [class.border-ink-200]="!showDobError()"
                     [class.focus:border-ember-400]="!showDobError()"
                     [class.border-ember-500]="showDobError()"
@@ -248,7 +248,7 @@ function maxDobIso(): string {
                     name="editGender"
                     (blur)="touchedGender.set(true)"
                     (change)="touchedGender.set(true)"
-                    class="w-full rounded-lg border px-3 py-2 text-sm outline-none transition"
+                    class="w-full rounded-lg border px-3 py-2 text-sm outline-none transition dark:bg-ink-900 dark:text-white"
                     [class.border-ink-200]="!showGenderError()"
                     [class.focus:border-ember-400]="!showGenderError()"
                     [class.border-ember-500]="showGenderError()"
@@ -264,16 +264,16 @@ function maxDobIso(): string {
                 </div>
 
                 <div class="flex gap-2">
-                  <button type="submit" [disabled]="savingProfile()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                  <button type="submit" [disabled]="savingProfile()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900">
                     {{ savingProfile() ? 'Saving…' : 'Save' }}
                   </button>
-                  <button type="button" [disabled]="savingProfile()" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-500" (click)="cancelEditProfile()">Cancel</button>
+                  <button type="button" [disabled]="savingProfile()" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-500 dark:border-ink-700 dark:text-ink-400" (click)="cancelEditProfile()">Cancel</button>
                 </div>
               </form>
             }
           </div>
           @if (!editingProfile()) {
-            <button type="button" class="text-ink-300 hover:text-ember-600" (click)="startEditProfile(u)">
+            <button type="button" class="text-ink-300 hover:text-ember-600 dark:text-ink-600" (click)="startEditProfile(u)">
               <app-icon name="edit" [size]="16" />
             </button>
           }
@@ -282,7 +282,7 @@ function maxDobIso(): string {
 
         @if (showAddresses) {
         <div class="flex items-center justify-between" [class.mt-6]="!embedded">
-          <h2 class="font-display text-base font-bold text-ink-900">Saved addresses</h2>
+          <h2 class="font-display text-base font-bold text-ink-900 dark:text-white">Saved addresses</h2>
           <button type="button" class="text-sm font-semibold text-ember-600" (click)="toggleAddressForm()">
             {{ showForm() ? 'Cancel' : '+ Add address' }}
           </button>
@@ -292,12 +292,12 @@ function maxDobIso(): string {
           @for (addr of u.addresses; track addr._id) {
             <div class="card-surface flex items-start justify-between gap-3 p-3.5">
               <div>
-                <p class="text-sm font-semibold text-ink-800">{{ addr.label }} @if (addr.isDefault) { <span class="ml-1 rounded bg-basil-100 px-1.5 py-0.5 text-[10px] font-bold text-basil-600">DEFAULT</span> }</p>
-                <p class="text-sm text-ink-500">{{ addr.line1 }}, {{ addr.area ? addr.area + ', ' : '' }}{{ addr.city }}</p>
+                <p class="text-sm font-semibold text-ink-800 dark:text-ink-100">{{ addr.label }} @if (addr.isDefault) { <span class="ml-1 rounded bg-basil-100 px-1.5 py-0.5 text-[10px] font-bold text-basil-600">DEFAULT</span> }</p>
+                <p class="text-sm text-ink-500 dark:text-ink-400">{{ addr.line1 }}, {{ addr.area ? addr.area + ', ' : '' }}{{ addr.city }}</p>
                 @if (addr.landmark) {
-                  <p class="text-xs text-ink-400">Landmark: {{ addr.landmark }}</p>
+                  <p class="text-xs text-ink-400 dark:text-ink-500">Landmark: {{ addr.landmark }}</p>
                 }
-                <p class="text-xs text-ink-400">{{ addr.state }} {{ addr.zip }} @if (addr.phone) { · {{ addr.phone }} }</p>
+                <p class="text-xs text-ink-400 dark:text-ink-500">{{ addr.state }} {{ addr.zip }} @if (addr.phone) { · {{ addr.phone }} }</p>
                 @if (!addr.isDefault) {
                   <button type="button" class="mt-1.5 text-xs font-bold text-ember-600" (click)="setDefaultAddress(addr._id)">
                     Set as default
@@ -305,16 +305,16 @@ function maxDobIso(): string {
                 }
               </div>
               <div class="flex shrink-0 gap-1">
-                <button type="button" class="text-ink-300 hover:text-ember-600" (click)="startEditAddress(addr)" aria-label="Edit address">
+                <button type="button" class="text-ink-300 hover:text-ember-600 dark:text-ink-600" (click)="startEditAddress(addr)" aria-label="Edit address">
                   <app-icon name="edit" [size]="16" />
                 </button>
-                <button type="button" class="text-ink-300 hover:text-ember-600" (click)="removeAddress(addr._id)" aria-label="Delete address">
+                <button type="button" class="text-ink-300 hover:text-ember-600 dark:text-ink-600" (click)="removeAddress(addr._id)" aria-label="Delete address">
                   <app-icon name="trash" [size]="16" />
                 </button>
               </div>
             </div>
           } @empty {
-            <p class="text-sm text-ink-400">No saved addresses yet.</p>
+            <p class="text-sm text-ink-400 dark:text-ink-500">No saved addresses yet.</p>
           }
         </div>
 
@@ -322,7 +322,7 @@ function maxDobIso(): string {
           <form class="card-surface mt-3 space-y-2 p-4" (submit)="saveAddress($event)">
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <select [(ngModel)]="newAddress.label" name="label" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400">
+                <select [(ngModel)]="newAddress.label" name="label" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white">
                   @for (t of addressTypes; track t) {
                     <option [value]="t">{{ t }}</option>
                   }
@@ -333,7 +333,7 @@ function maxDobIso(): string {
                   [(ngModel)]="newAddress.city"
                   name="city"
                   placeholder="City"
-                  class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-ember-400"
+                  class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white"
                   [class.border-ink-200]="!addressErrors().city"
                   [class.border-ember-500]="addressErrors().city"
                 />
@@ -348,7 +348,7 @@ function maxDobIso(): string {
                 [(ngModel)]="newAddress.line1"
                 name="line1"
                 placeholder="Address line"
-                class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-ember-400"
+                class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white"
                 [class.border-ink-200]="!addressErrors().line1"
                 [class.border-ember-500]="addressErrors().line1"
               />
@@ -357,14 +357,14 @@ function maxDobIso(): string {
               }
             </div>
 
-            <input [(ngModel)]="newAddress.area" name="area" placeholder="Area / neighborhood (optional)" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
+            <input [(ngModel)]="newAddress.area" name="area" placeholder="Area / neighborhood (optional)" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
 
             <div>
               <input
                 [(ngModel)]="newAddress.landmark"
                 name="landmark"
                 placeholder="Landmark"
-                class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-ember-400"
+                class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white"
                 [class.border-ink-200]="!addressErrors().landmark"
                 [class.border-ember-500]="addressErrors().landmark"
               />
@@ -379,7 +379,7 @@ function maxDobIso(): string {
                   [(ngModel)]="newAddress.state"
                   name="state"
                   placeholder="State"
-                  class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-ember-400"
+                  class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white"
                   [class.border-ink-200]="!addressErrors().state"
                   [class.border-ember-500]="addressErrors().state"
                 />
@@ -395,7 +395,7 @@ function maxDobIso(): string {
                   inputmode="numeric"
                   placeholder="Pincode"
                   (input)="onZipInput($event)"
-                  class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-ember-400"
+                  class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white"
                   [class.border-ink-200]="!addressErrors().zip"
                   [class.border-ember-500]="addressErrors().zip"
                 />
@@ -412,7 +412,7 @@ function maxDobIso(): string {
               }
             </div>
 
-            <button type="submit" [disabled]="savingAddress()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            <button type="submit" [disabled]="savingAddress()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900">
               {{ savingAddress() ? 'Saving…' : editingAddressId() ? 'Update address' : 'Save address' }}
             </button>
           </form>

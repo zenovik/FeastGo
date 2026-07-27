@@ -59,7 +59,7 @@ const APP_VERSION = '1.0.0';
   imports: [FormsModule, IconComponent, MobileFieldComponent, ProfileComponent],
   template: `
     <div class="container-shell max-w-4xl py-10">
-      <h1 class="font-display text-2xl font-bold text-ink-900">Settings</h1>
+      <h1 class="font-display text-2xl font-bold text-ink-900 dark:text-white">Settings</h1>
 
       <div class="mt-6 flex flex-col gap-6 md:flex-row">
         <!-- Section nav: horizontal pill-scroll on mobile, sticky sidebar on desktop -->
@@ -69,9 +69,13 @@ const APP_VERSION = '1.0.0';
               type="button"
               class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition"
               [class.bg-ember-50]="activeSection() === s.key"
+              [class.dark:bg-ember-500/10]="activeSection() === s.key"
               [class.text-ember-600]="activeSection() === s.key"
+              [class.dark:text-ember-400]="activeSection() === s.key"
               [class.text-ink-600]="activeSection() !== s.key"
+              [class.dark:text-ink-300]="activeSection() !== s.key"
               [class.hover:bg-ink-50]="activeSection() !== s.key"
+              [class.dark:hover:bg-ink-700/50]="activeSection() !== s.key"
               (click)="selectSection(s.key)"
             >
               <span aria-hidden="true">{{ s.emoji }}</span> {{ s.label }}
@@ -82,8 +86,8 @@ const APP_VERSION = '1.0.0';
         <div class="min-w-0 flex-1">
           @if (activeSection() === 'personal') {
             <div class="card-surface p-5">
-              <h2 class="font-display text-lg font-bold text-ink-900">Personal Information</h2>
-              <p class="mt-1 text-sm text-ink-500">Profile photo, full name, mobile number, email, date of birth, and gender.</p>
+              <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Personal Information</h2>
+              <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Profile photo, full name, mobile number, email, date of birth, and gender.</p>
               <div class="mt-4">
                 <app-profile [embedded]="true" [showAddresses]="false" [showSignOut]="false" />
               </div>
@@ -92,8 +96,8 @@ const APP_VERSION = '1.0.0';
 
           @if (activeSection() === 'addresses') {
             <div class="card-surface p-5">
-              <h2 class="font-display text-lg font-bold text-ink-900">Address Management</h2>
-              <p class="mt-1 text-sm text-ink-500">Add, edit, delete, or set a default delivery address.</p>
+              <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Address Management</h2>
+              <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Add, edit, delete, or set a default delivery address.</p>
               <div class="mt-4">
                 <app-profile [embedded]="true" [showPersonalInfo]="false" [showSignOut]="false" />
               </div>
@@ -102,20 +106,20 @@ const APP_VERSION = '1.0.0';
 
           @if (activeSection() === 'security') {
             <div class="card-surface p-5">
-              <h2 class="font-display text-lg font-bold text-ink-900">Security</h2>
+              <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Security</h2>
 
-              <div class="mt-4 rounded-lg border border-ink-100 bg-ink-50 p-3.5">
-                <p class="flex items-center gap-2 text-sm font-semibold text-ink-700">
+              <div class="mt-4 rounded-lg border border-ink-100 bg-ink-50 p-3.5 dark:border-ink-700 dark:bg-ink-900/40">
+                <p class="flex items-center gap-2 text-sm font-semibold text-ink-700 dark:text-ink-200">
                   <app-icon name="lock" [size]="15" /> Change Password
                 </p>
-                <p class="mt-1 text-xs text-ink-500">
+                <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">
                   Your account signs in with a one-time code — there's no password to change. Use the options below to update your mobile number or email instead.
                 </p>
               </div>
 
-              <div class="mt-4 border-t border-ink-100 pt-4">
-                <p class="text-sm font-semibold text-ink-700">Change Mobile Number</p>
-                <p class="mt-0.5 text-xs text-ink-400">Current: {{ auth.currentUser()?.phone || '—' }}</p>
+              <div class="mt-4 border-t border-ink-100 pt-4 dark:border-ink-700">
+                <p class="text-sm font-semibold text-ink-700 dark:text-ink-200">Change Mobile Number</p>
+                <p class="mt-0.5 text-xs text-ink-400 dark:text-ink-500">Current: {{ auth.currentUser()?.phone || '—' }}</p>
                 @if (changingField() !== 'phone') {
                   <div class="mt-2 flex items-center gap-2">
                     <div class="flex-1">
@@ -134,22 +138,22 @@ const APP_VERSION = '1.0.0';
                       </div>
                     }
                     <div class="mt-2 flex gap-2">
-                      <input type="text" inputmode="numeric" maxlength="4" [(ngModel)]="changeCode" name="phoneChangeCode" placeholder="4-digit code" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
+                      <input type="text" inputmode="numeric" maxlength="4" [(ngModel)]="changeCode" name="phoneChangeCode" placeholder="4-digit code" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
                       <button type="button" [disabled]="changeSubmitting()" class="shrink-0 rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" (click)="submitChange('phone')">
                         {{ changeSubmitting() ? 'Verifying…' : 'Verify' }}
                       </button>
-                      <button type="button" class="shrink-0 rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold text-ink-500" (click)="cancelChange()">Cancel</button>
+                      <button type="button" class="shrink-0 rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold text-ink-500 dark:border-ink-700 dark:text-ink-400" (click)="cancelChange()">Cancel</button>
                     </div>
                   </div>
                 }
               </div>
 
-              <div class="mt-4 border-t border-ink-100 pt-4">
-                <p class="text-sm font-semibold text-ink-700">Change Email</p>
-                <p class="mt-0.5 text-xs text-ink-400">Current: {{ auth.currentUser()?.email || '—' }}</p>
+              <div class="mt-4 border-t border-ink-100 pt-4 dark:border-ink-700">
+                <p class="text-sm font-semibold text-ink-700 dark:text-ink-200">Change Email</p>
+                <p class="mt-0.5 text-xs text-ink-400 dark:text-ink-500">Current: {{ auth.currentUser()?.email || '—' }}</p>
                 @if (changingField() !== 'email') {
                   <div class="mt-2 flex items-center gap-2">
-                    <input type="email" [(ngModel)]="newEmail" name="newEmail" placeholder="New email address" class="w-full flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
+                    <input type="email" [(ngModel)]="newEmail" name="newEmail" placeholder="New email address" class="w-full flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
                     <button type="button" [disabled]="!newEmail.trim()" class="shrink-0 rounded-lg bg-ink-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-50" (click)="requestChange('email')">
                       Send OTP
                     </button>
@@ -163,11 +167,11 @@ const APP_VERSION = '1.0.0';
                       </div>
                     }
                     <div class="mt-2 flex gap-2">
-                      <input type="text" inputmode="numeric" maxlength="4" [(ngModel)]="changeCode" name="emailChangeCode" placeholder="4-digit code" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
+                      <input type="text" inputmode="numeric" maxlength="4" [(ngModel)]="changeCode" name="emailChangeCode" placeholder="4-digit code" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
                       <button type="button" [disabled]="changeSubmitting()" class="shrink-0 rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" (click)="submitChange('email')">
                         {{ changeSubmitting() ? 'Verifying…' : 'Verify' }}
                       </button>
-                      <button type="button" class="shrink-0 rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold text-ink-500" (click)="cancelChange()">Cancel</button>
+                      <button type="button" class="shrink-0 rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold text-ink-500 dark:border-ink-700 dark:text-ink-400" (click)="cancelChange()">Cancel</button>
                     </div>
                   </div>
                 }
@@ -180,18 +184,18 @@ const APP_VERSION = '1.0.0';
 
           @if (activeSection() === 'notifications') {
             <div class="card-surface p-5">
-              <h2 class="font-display text-lg font-bold text-ink-900">Notifications</h2>
-              <p class="mt-1 text-sm text-ink-500">Choose what you'd like to hear from us.</p>
-              <div class="mt-4 divide-y divide-ink-100">
+              <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Notifications</h2>
+              <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Choose what you'd like to hear from us.</p>
+              <div class="mt-4 divide-y divide-ink-100 dark:divide-ink-700">
                 @for (t of notifToggles; track t.key) {
                   <label class="flex items-center justify-between gap-4 py-3">
                     <span>
-                      <span class="block text-sm font-semibold text-ink-800">{{ t.label }}</span>
-                      <span class="block text-xs text-ink-400">{{ t.hint }}</span>
+                      <span class="block text-sm font-semibold text-ink-800 dark:text-ink-100">{{ t.label }}</span>
+                      <span class="block text-xs text-ink-400 dark:text-ink-500">{{ t.hint }}</span>
                     </span>
                     <input
                       type="checkbox"
-                      class="h-5 w-9 shrink-0 cursor-pointer appearance-none rounded-full bg-ink-200 transition-colors checked:bg-basil-500 relative
+                      class="h-5 w-9 shrink-0 cursor-pointer appearance-none rounded-full bg-ink-200 transition-colors checked:bg-basil-500 relative dark:bg-ink-700
                              before:absolute before:left-0.5 before:top-0.5 before:h-4 before:w-4 before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-4"
                       [checked]="notifPrefValue(t.key)"
                       (change)="toggleNotifPref(t.key)"
@@ -204,8 +208,8 @@ const APP_VERSION = '1.0.0';
 
           @if (activeSection() === 'appearance') {
             <div class="card-surface p-5">
-              <h2 class="font-display text-lg font-bold text-ink-900">Appearance</h2>
-              <p class="mt-1 text-sm text-ink-500">Choose how FeastGo looks on this device.</p>
+              <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Appearance</h2>
+              <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Choose how FeastGo looks on this device.</p>
               <div class="mt-4 grid grid-cols-3 gap-2">
                 <button type="button" class="flex flex-col items-center gap-1.5 rounded-lg border p-3" [class.border-ember-500]="theme.mode() === 'light'" [class.border-ink-200]="theme.mode() !== 'light'" (click)="setTheme('light')">
                   <app-icon name="sun" [size]="20" [class]="theme.mode() === 'light' ? 'text-ember-600' : 'text-ink-400'" />
@@ -225,14 +229,14 @@ const APP_VERSION = '1.0.0';
 
           @if (activeSection() === 'language') {
             <div class="card-surface p-5">
-              <h2 class="font-display text-lg font-bold text-ink-900">Language</h2>
-              <p class="mt-1 text-sm text-ink-500">Your language preference is saved to your account.</p>
+              <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Language</h2>
+              <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Your language preference is saved to your account.</p>
               <select
                 [ngModel]="auth.currentUser()?.language"
                 (ngModelChange)="setLanguage($event)"
                 name="language"
                 [disabled]="savingLanguage()"
-                class="mt-3 w-full max-w-xs rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 disabled:opacity-50"
+                class="mt-3 w-full max-w-xs rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 disabled:opacity-50 dark:border-ink-700 dark:bg-ink-900 dark:text-white"
               >
                 @for (l of languages; track l.value) {
                   <option [value]="l.value">{{ l.label }}</option>
@@ -244,74 +248,74 @@ const APP_VERSION = '1.0.0';
           @if (activeSection() === 'payment') {
             <div class="space-y-4">
               <div class="card-surface p-5">
-                <h2 class="font-display text-lg font-bold text-ink-900">Saved Cards</h2>
-                <p class="mt-1 text-xs text-ink-400">Only the card network and last 4 digits are stored — never your full card number.</p>
+                <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Saved Cards</h2>
+                <p class="mt-1 text-xs text-ink-400 dark:text-ink-500">Only the card network and last 4 digits are stored — never your full card number.</p>
                 <div class="mt-3 space-y-2">
                   @for (c of auth.currentUser()?.savedCards; track c._id) {
-                    <div class="flex items-center justify-between rounded-lg border border-ink-100 p-3">
+                    <div class="flex items-center justify-between rounded-lg border border-ink-100 p-3 dark:border-ink-700">
                       <div class="flex items-center gap-2.5">
-                        <app-icon name="credit-card" [size]="18" class="text-ink-400" />
+                        <app-icon name="credit-card" [size]="18" class="text-ink-400 dark:text-ink-500" />
                         <div>
-                          <p class="text-sm font-semibold capitalize text-ink-800">{{ c.brand }} •••• {{ c.last4 }}</p>
-                          <p class="text-xs text-ink-400">{{ c.label || 'Card' }} · Expires {{ c.expiryMonth }}/{{ c.expiryYear }}</p>
+                          <p class="text-sm font-semibold capitalize text-ink-800 dark:text-ink-100">{{ c.brand }} •••• {{ c.last4 }}</p>
+                          <p class="text-xs text-ink-400 dark:text-ink-500">{{ c.label || 'Card' }} · Expires {{ c.expiryMonth }}/{{ c.expiryYear }}</p>
                         </div>
                       </div>
-                      <button type="button" class="text-ink-300 hover:text-ember-600" (click)="removeCard(c._id)"><app-icon name="trash" [size]="16" /></button>
+                      <button type="button" class="text-ink-300 hover:text-ember-600 dark:text-ink-600" (click)="removeCard(c._id)"><app-icon name="trash" [size]="16" /></button>
                     </div>
                   } @empty {
-                    <p class="text-sm text-ink-400">No saved cards yet.</p>
+                    <p class="text-sm text-ink-400 dark:text-ink-500">No saved cards yet.</p>
                   }
                 </div>
                 @if (!showCardForm()) {
                   <button type="button" class="mt-3 text-sm font-semibold text-ember-600" (click)="showCardForm.set(true)">+ Add card</button>
                 } @else {
-                  <form class="mt-3 space-y-2 rounded-lg border border-ink-100 p-3" (submit)="addCard($event)">
+                  <form class="mt-3 space-y-2 rounded-lg border border-ink-100 p-3 dark:border-ink-700" (submit)="addCard($event)">
                     <div class="grid grid-cols-2 gap-2">
-                      <input [(ngModel)]="newCard.label" name="cardLabel" placeholder="Nickname (optional)" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-                      <select [(ngModel)]="newCard.brand" name="cardBrand" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400">
+                      <input [(ngModel)]="newCard.label" name="cardLabel" placeholder="Nickname (optional)" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+                      <select [(ngModel)]="newCard.brand" name="cardBrand" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white">
                         <option value="">Select network</option>
                         @for (b of cardBrands; track b) { <option [value]="b">{{ b }}</option> }
                       </select>
                     </div>
                     <div class="grid grid-cols-3 gap-2">
-                      <input [(ngModel)]="newCard.last4" name="cardLast4" maxlength="4" inputmode="numeric" placeholder="Last 4 digits" (input)="onLast4Input($event)" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-                      <input [(ngModel)]="newCard.expiryMonth" name="cardExpMonth" type="number" min="1" max="12" placeholder="MM" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-                      <input [(ngModel)]="newCard.expiryYear" name="cardExpYear" type="number" placeholder="YYYY" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
+                      <input [(ngModel)]="newCard.last4" name="cardLast4" maxlength="4" inputmode="numeric" placeholder="Last 4 digits" (input)="onLast4Input($event)" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+                      <input [(ngModel)]="newCard.expiryMonth" name="cardExpMonth" type="number" min="1" max="12" placeholder="MM" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+                      <input [(ngModel)]="newCard.expiryYear" name="cardExpYear" type="number" placeholder="YYYY" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
                     </div>
                     @if (cardError()) { <p class="text-xs font-medium text-ember-600">{{ cardError() }}</p> }
                     <div class="flex gap-2">
                       <button type="submit" [disabled]="savingCard()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{{ savingCard() ? 'Saving…' : 'Save card' }}</button>
-                      <button type="button" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-500" (click)="showCardForm.set(false)">Cancel</button>
+                      <button type="button" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-500 dark:border-ink-700 dark:text-ink-400" (click)="showCardForm.set(false)">Cancel</button>
                     </div>
                   </form>
                 }
               </div>
 
               <div class="card-surface p-5">
-                <h2 class="font-display text-lg font-bold text-ink-900">Saved UPI</h2>
+                <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Saved UPI</h2>
                 <div class="mt-3 space-y-2">
                   @for (u of auth.currentUser()?.savedUpi; track u._id) {
-                    <div class="flex items-center justify-between rounded-lg border border-ink-100 p-3">
+                    <div class="flex items-center justify-between rounded-lg border border-ink-100 p-3 dark:border-ink-700">
                       <div>
-                        <p class="text-sm font-semibold text-ink-800">{{ u.upiId }}</p>
-                        <p class="text-xs text-ink-400">{{ u.label || 'UPI' }}</p>
+                        <p class="text-sm font-semibold text-ink-800 dark:text-ink-100">{{ u.upiId }}</p>
+                        <p class="text-xs text-ink-400 dark:text-ink-500">{{ u.label || 'UPI' }}</p>
                       </div>
-                      <button type="button" class="text-ink-300 hover:text-ember-600" (click)="removeUpi(u._id)"><app-icon name="trash" [size]="16" /></button>
+                      <button type="button" class="text-ink-300 hover:text-ember-600 dark:text-ink-600" (click)="removeUpi(u._id)"><app-icon name="trash" [size]="16" /></button>
                     </div>
                   } @empty {
-                    <p class="text-sm text-ink-400">No saved UPI IDs yet.</p>
+                    <p class="text-sm text-ink-400 dark:text-ink-500">No saved UPI IDs yet.</p>
                   }
                 </div>
                 @if (!showUpiForm()) {
                   <button type="button" class="mt-3 text-sm font-semibold text-ember-600" (click)="showUpiForm.set(true)">+ Add UPI ID</button>
                 } @else {
-                  <form class="mt-3 space-y-2 rounded-lg border border-ink-100 p-3" (submit)="addUpi($event)">
-                    <input [(ngModel)]="newUpi.label" name="upiLabel" placeholder="Nickname (optional)" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-                    <input [(ngModel)]="newUpi.upiId" name="upiId" placeholder="name@bank" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
+                  <form class="mt-3 space-y-2 rounded-lg border border-ink-100 p-3 dark:border-ink-700" (submit)="addUpi($event)">
+                    <input [(ngModel)]="newUpi.label" name="upiLabel" placeholder="Nickname (optional)" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+                    <input [(ngModel)]="newUpi.upiId" name="upiId" placeholder="name@bank" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
                     @if (upiError()) { <p class="text-xs font-medium text-ember-600">{{ upiError() }}</p> }
                     <div class="flex gap-2">
                       <button type="submit" [disabled]="savingUpi()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{{ savingUpi() ? 'Saving…' : 'Save UPI' }}</button>
-                      <button type="button" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-500" (click)="showUpiForm.set(false)">Cancel</button>
+                      <button type="button" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-500 dark:border-ink-700 dark:text-ink-400" (click)="showUpiForm.set(false)">Cancel</button>
                     </div>
                   </form>
                 }
@@ -320,8 +324,8 @@ const APP_VERSION = '1.0.0';
               <div class="card-surface flex items-center gap-3 p-5">
                 <app-icon name="banknote" [size]="20" class="text-basil-600" />
                 <div>
-                  <p class="text-sm font-semibold text-ink-800">Cash on Delivery</p>
-                  <p class="text-xs text-ink-400">Always available at checkout — no setup needed.</p>
+                  <p class="text-sm font-semibold text-ink-800 dark:text-ink-100">Cash on Delivery</p>
+                  <p class="text-xs text-ink-400 dark:text-ink-500">Always available at checkout — no setup needed.</p>
                 </div>
               </div>
             </div>
@@ -330,24 +334,24 @@ const APP_VERSION = '1.0.0';
           @if (activeSection() === 'privacy') {
             <div class="space-y-4">
               <div class="card-surface p-5">
-                <h2 class="font-display text-lg font-bold text-ink-900">Privacy Settings</h2>
-                <p class="mt-1 text-sm text-ink-500">
+                <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Privacy Settings</h2>
+                <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">
                   Control what you share and receive from FeastGo. Promotional and offer messaging can be turned off any time from
                   <button type="button" class="font-semibold text-ember-600" (click)="selectSection('notifications')">Notifications</button>.
                 </p>
               </div>
 
               <div class="card-surface p-5">
-                <h2 class="font-display text-lg font-bold text-ink-900">Download My Data</h2>
-                <p class="mt-1 text-sm text-ink-500">Get a copy of your profile, orders, and reviews as a JSON file.</p>
-                <button type="button" [disabled]="exportingData()" class="mt-3 flex items-center gap-2 rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-700 disabled:opacity-50" (click)="downloadData()">
+                <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Download My Data</h2>
+                <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Get a copy of your profile, orders, and reviews as a JSON file.</p>
+                <button type="button" [disabled]="exportingData()" class="mt-3 flex items-center gap-2 rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-700 disabled:opacity-50 dark:border-ink-700 dark:text-ink-200" (click)="downloadData()">
                   <app-icon name="download" [size]="15" /> {{ exportingData() ? 'Preparing…' : 'Download my data' }}
                 </button>
               </div>
 
               <div class="card-surface border-2 border-ember-100 p-5">
                 <h2 class="font-display text-lg font-bold text-ember-700">Delete Account</h2>
-                <p class="mt-1 text-sm text-ink-500">Permanently removes your personal information. Your past orders remain on record for the restaurants and delivery partners you ordered from, but will no longer show your name.</p>
+                <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Permanently removes your personal information. Your past orders remain on record for the restaurants and delivery partners you ordered from, but will no longer show your name.</p>
                 @if (deleteStep() === 'idle') {
                   <button type="button" class="mt-3 rounded-lg border border-ember-500 px-4 py-2 text-sm font-bold text-ember-600 hover:bg-ember-50" (click)="deleteStep.set('confirming')">
                     Delete my account
@@ -360,7 +364,7 @@ const APP_VERSION = '1.0.0';
                       <button type="button" [disabled]="deleteConfirmText.trim() !== 'DELETE' || deletingAccount()" class="rounded-lg bg-ember-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50" (click)="confirmDeleteAccount()">
                         {{ deletingAccount() ? 'Deleting…' : 'Permanently delete' }}
                       </button>
-                      <button type="button" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-500" (click)="deleteStep.set('idle'); deleteConfirmText = ''">Cancel</button>
+                      <button type="button" class="rounded-lg border border-ink-200 px-4 py-2 text-sm font-semibold text-ink-500 dark:border-ink-700 dark:text-ink-400" (click)="deleteStep.set('idle'); deleteConfirmText = ''">Cancel</button>
                     </div>
                   </div>
                 }
@@ -371,16 +375,16 @@ const APP_VERSION = '1.0.0';
           @if (activeSection() === 'support') {
             <div class="space-y-4">
               <div class="card-surface p-5">
-                <h2 class="font-display text-lg font-bold text-ink-900">Help Center — FAQ</h2>
-                <div class="mt-3 divide-y divide-ink-100">
+                <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Help Center — FAQ</h2>
+                <div class="mt-3 divide-y divide-ink-100 dark:divide-ink-700">
                   @for (item of faqs; track item.q; let i = $index) {
                     <div class="py-2.5">
-                      <button type="button" class="flex w-full items-center justify-between text-left text-sm font-semibold text-ink-800" (click)="toggleFaq(i)">
+                      <button type="button" class="flex w-full items-center justify-between text-left text-sm font-semibold text-ink-800 dark:text-ink-100" (click)="toggleFaq(i)">
                         {{ item.q }}
-                        <app-icon [name]="openFaq() === i ? 'chevron_down' : 'chevron_right'" [size]="14" class="shrink-0 text-ink-400" />
+                        <app-icon [name]="openFaq() === i ? 'chevron_down' : 'chevron_right'" [size]="14" class="shrink-0 text-ink-400 dark:text-ink-500" />
                       </button>
                       @if (openFaq() === i) {
-                        <p class="mt-1.5 text-sm text-ink-500">{{ item.a }}</p>
+                        <p class="mt-1.5 text-sm text-ink-500 dark:text-ink-400">{{ item.a }}</p>
                       }
                     </div>
                   }
@@ -388,10 +392,10 @@ const APP_VERSION = '1.0.0';
               </div>
 
               <div class="card-surface p-5">
-                <h2 class="font-display text-lg font-bold text-ink-900">Contact Support</h2>
+                <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Contact Support</h2>
                 <form class="mt-3 space-y-2" (submit)="sendSupportMessage($event, false)">
-                  <input [(ngModel)]="supportSubject" name="supportSubject" placeholder="Subject" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-                  <textarea [(ngModel)]="supportMessage" name="supportMessage" rows="3" placeholder="How can we help?" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400"></textarea>
+                  <input [(ngModel)]="supportSubject" name="supportSubject" placeholder="Subject" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+                  <textarea [(ngModel)]="supportMessage" name="supportMessage" rows="3" placeholder="How can we help?" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white"></textarea>
                   <button type="submit" [disabled]="submittingSupport()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
                     {{ submittingSupport() ? 'Sending…' : 'Send message' }}
                   </button>
@@ -399,9 +403,9 @@ const APP_VERSION = '1.0.0';
               </div>
 
               <div class="card-surface p-5">
-                <h2 class="font-display text-lg font-bold text-ink-900">Report a Problem</h2>
+                <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Report a Problem</h2>
                 <form class="mt-3 space-y-2" (submit)="sendSupportMessage($event, true)">
-                  <textarea [(ngModel)]="reportMessage" name="reportMessage" rows="3" placeholder="Describe the problem you ran into" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400"></textarea>
+                  <textarea [(ngModel)]="reportMessage" name="reportMessage" rows="3" placeholder="Describe the problem you ran into" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white"></textarea>
                   <button type="submit" [disabled]="submittingReport()" class="rounded-lg border border-ember-500 px-4 py-2 text-sm font-bold text-ember-600 hover:bg-ember-50 disabled:opacity-50">
                     {{ submittingReport() ? 'Sending…' : 'Report problem' }}
                   </button>
@@ -412,28 +416,28 @@ const APP_VERSION = '1.0.0';
 
           @if (activeSection() === 'about') {
             <div class="card-surface p-5">
-              <h2 class="font-display text-lg font-bold text-ink-900">About FeastGo</h2>
-              <p class="mt-1 text-sm text-ink-500">FeastGo connects you with the best local restaurants for fast, reliable delivery.</p>
-              <p class="mt-2 text-xs text-ink-400">App version {{ appVersion }}</p>
+              <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">About FeastGo</h2>
+              <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">FeastGo connects you with the best local restaurants for fast, reliable delivery.</p>
+              <p class="mt-2 text-xs text-ink-400 dark:text-ink-500">App version {{ appVersion }}</p>
 
-              <div class="mt-4 divide-y divide-ink-100 border-t border-ink-100">
+              <div class="mt-4 divide-y divide-ink-100 border-t border-ink-100 dark:divide-ink-700 dark:border-ink-700">
                 <div class="py-3">
-                  <p class="text-sm font-semibold text-ink-800">Privacy Policy</p>
-                  <p class="mt-1 text-sm text-ink-500">
+                  <p class="text-sm font-semibold text-ink-800 dark:text-ink-100">Privacy Policy</p>
+                  <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">
                     We collect only what's needed to place and deliver your orders — your name, contact details, and delivery
                     addresses. We never sell your data. You can download or delete your data any time from the Privacy section.
                   </p>
                 </div>
                 <div class="py-3">
-                  <p class="text-sm font-semibold text-ink-800">Terms &amp; Conditions</p>
-                  <p class="mt-1 text-sm text-ink-500">
+                  <p class="text-sm font-semibold text-ink-800 dark:text-ink-100">Terms &amp; Conditions</p>
+                  <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">
                     By using FeastGo you agree to order responsibly, provide accurate delivery details, and treat delivery
                     partners and restaurant staff with respect. Restaurants set their own menus, pricing, and availability.
                   </p>
                 </div>
                 <div class="py-3">
-                  <p class="text-sm font-semibold text-ink-800">Refund Policy</p>
-                  <p class="mt-1 text-sm text-ink-500">
+                  <p class="text-sm font-semibold text-ink-800 dark:text-ink-100">Refund Policy</p>
+                  <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">
                     If an order arrives incorrect, incomplete, or not at all, contact Support within 24 hours and we'll work
                     with the restaurant to make it right.
                   </p>

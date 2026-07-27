@@ -157,9 +157,6 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
                     <p class="truncate text-sm font-semibold text-ink-900">{{ auth.currentUser()?.name }}</p>
                     <p class="truncate text-xs text-ink-400">{{ contactLabel() }}</p>
                   </div>
-                  <a routerLink="/profile" routerLinkActive="text-ember-600 bg-ember-50" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" role="menuitem">
-                    <app-icon name="user" [size]="16" /> Profile
-                  </a>
                   <a routerLink="/orders" routerLinkActive="text-ember-600 bg-ember-50" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" role="menuitem">
                     <app-icon name="package" [size]="16" /> Orders
                   </a>
@@ -262,10 +259,7 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
                 }
 
                 @if (auth.isAuthenticated()) {
-                  <a routerLink="/profile" routerLinkActive="text-ember-600" class="flex items-center gap-2.5 border-t border-ink-100 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" (click)="mobileNavOpen.set(false)">
-                    <app-icon name="user" [size]="16" /> Profile
-                  </a>
-                  <a routerLink="/favorites" routerLinkActive="text-ember-600" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" (click)="mobileNavOpen.set(false)">
+                  <a routerLink="/favorites" routerLinkActive="text-ember-600" class="flex items-center gap-2.5 border-t border-ink-100 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" (click)="mobileNavOpen.set(false)">
                     <app-icon name="heart" [size]="16" /> Bookmarks
                   </a>
                   <a routerLink="/settings" routerLinkActive="text-ember-600" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink-700 hover:bg-ink-50" (click)="mobileNavOpen.set(false)">
