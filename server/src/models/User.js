@@ -5,9 +5,11 @@ const addressSchema = new mongoose.Schema(
     label: { type: String, default: 'Home' },
     line1: { type: String, required: true },
     area: { type: String, default: '' },
+    landmark: { type: String, default: '' },
     city: { type: String, required: true },
     state: { type: String, default: '' },
     zip: { type: String, default: '' },
+    phone: { type: String, default: '' },
     lat: { type: Number, default: 0 },
     lng: { type: Number, default: 0 },
     isDefault: { type: Boolean, default: false },
@@ -26,7 +28,8 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, unique: true, sparse: true, trim: true },
     email: { type: String, unique: true, sparse: true, trim: true, lowercase: true },
     termsAcceptedAt: { type: Date, default: null },
-    gender: { type: String, enum: ['male', 'female', 'other', null], default: null },
+    dob: { type: Date, default: null },
+    gender: { type: String, enum: ['male', 'female', 'other', 'prefer_not_to_say', null], default: null },
     photo: { type: String, default: null },
     location: {
       lat: { type: Number, default: null },
@@ -44,9 +47,9 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.methods.toSafeObject = function toSafeObject() {
-  const { _id, name, email, phone, gender, photo, location, role, adminRole, addresses, favoriteRestaurants, isBlocked, createdAt } =
+  const { _id, name, email, phone, dob, gender, photo, location, role, adminRole, addresses, favoriteRestaurants, isBlocked, createdAt } =
     this;
-  return { id: _id, name, email, phone, gender, photo, location, role, adminRole, addresses, favoriteRestaurants, isBlocked, createdAt };
+  return { id: _id, name, email, phone, dob, gender, photo, location, role, adminRole, addresses, favoriteRestaurants, isBlocked, createdAt };
 };
 
 export default mongoose.model('User', userSchema);

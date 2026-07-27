@@ -92,6 +92,7 @@ export class AuthService {
     updates: {
       name?: string;
       gender?: Gender | null;
+      dob?: string | null;
       photo?: string | null;
       location?: { lat: number; lng: number } | null;
     },

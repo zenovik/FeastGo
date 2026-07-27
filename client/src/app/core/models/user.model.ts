@@ -3,9 +3,11 @@ export interface Address {
   label: string;
   line1: string;
   area?: string;
+  landmark?: string;
   city: string;
   state?: string;
   zip?: string;
+  phone?: string;
   lat?: number;
   lng?: number;
   isDefault?: boolean;
@@ -13,13 +15,14 @@ export interface Address {
   instructions?: string;
 }
 
-export type Gender = 'male' | 'female' | 'other';
+export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 
 export interface User {
   id: string;
   name: string;
   email: string | null;
   phone: string | null;
+  dob: string | null;
   gender: Gender | null;
   photo: string | null;
   location: { lat: number | null; lng: number | null };

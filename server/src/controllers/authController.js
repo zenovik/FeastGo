@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Restaurant from '../models/Restaurant.js';
+import Review from '../models/Review.js';
 import { signToken } from '../utils/token.js';
 import { ApiError } from '../utils/ApiError.js';
 import { issueOtp, checkOtp, isPhoneVerified, clearOtp, devOtpField } from '../utils/otpStore.js';
@@ -16,6 +17,35 @@ const COOKIE_OPTIONS = {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+const NAME_REGEX = /^[A-Za-z]+(?: [A-Za-z]+)*$/;
+
+// Trims + collapses internal whitespace before validating shape, so spacing
+// issues are silently normalized rather than rejected — only genuine
+// non-letter characters produce a validation error.
+function assertValidName(rawName) {
+  const name = String(rawName ?? '').trim().replace(/\s+/g, ' ');
+  if (!name) throw new ApiError(400, 'Name is required.');
+  if (name.length < 3 || name.length > 50) throw new ApiError(400, 'Name must be between 3 and 50 characters.');
+  if (!NAME_REGEX.test(name)) throw new ApiError(400, 'Only letters are allowed.');
+  return name;
+}
+
+function calculateAge(dob) {
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDiff = today.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age;
+}
+
+function assertValidDob(rawDob) {
+  const date = new Date(rawDob);
+  if (Number.isNaN(date.getTime())) throw new ApiError(400, 'Enter a valid date of birth.');
+  if (date.getTime() > Date.now()) throw new ApiError(400, 'Date of birth cannot be in the future.');
+  if (calculateAge(date) < 18) throw new ApiError(400, 'You must be at least 18 years old.');
+  return date;
 }
 
 function respondWithToken(res, user, statusCode = 200) {
@@ -155,26 +185,34 @@ export async function refreshToken(req, res) {
 
 export async function updateProfile(req, res, next) {
   try {
-    const isExplicitProfileEdit = req.body.name !== undefined || req.body.gender !== undefined || req.body.photo !== undefined;
+    const isExplicitProfileEdit = req.body.name !== undefined || req.body.gender !== undefined || req.body.photo !== undefined || req.body.dob !== undefined;
+    let nameChanged = false;
     if (req.body.name !== undefined) {
-      const name = String(req.body.name).trim();
-      if (!name) throw new ApiError(400, 'Name is required');
+      const name = assertValidName(req.body.name);
+      nameChanged = name !== req.user.name;
       req.user.name = name;
     }
     if (req.body.gender !== undefined) {
       const gender = req.body.gender || null;
-      if (gender !== null && !['male', 'female', 'other'].includes(gender)) {
+      if (gender !== null && !['male', 'female', 'other', 'prefer_not_to_say'].includes(gender)) {
         throw new ApiError(400, 'Invalid gender value');
       }
       req.user.gender = gender;
     }
+    if (req.body.dob !== undefined) {
+      req.user.dob = req.body.dob === null ? null : assertValidDob(req.body.dob);
+    }
     if (req.body.photo !== undefined) {
       const photo = req.body.photo || null;
-      if (photo && !/^data:image\/(png|jpe?g|webp|gif);base64,/.test(photo)) {
-        throw new ApiError(400, 'Invalid photo format');
+      // JPG/JPEG/PNG/WEBP only, matching the client's own accept/validation —
+      // deliberately narrower than other upload sites in this app that also
+      // permit gif.
+      if (photo && !/^data:image\/(png|jpe?g|webp);base64,/.test(photo)) {
+        throw new ApiError(400, 'Please upload a valid image.');
       }
-      if (photo && photo.length > 3_000_000) {
-        throw new ApiError(400, 'Photo is too large');
+      // ~5MB raw file, allowing for base64's ~4/3 size inflation plus the data-URI prefix.
+      if (photo && photo.length > 7_000_000) {
+        throw new ApiError(400, 'Image size must not exceed 5 MB.');
       }
       req.user.photo = photo;
     }
@@ -192,6 +230,12 @@ export async function updateProfile(req, res, next) {
       }
     }
     await req.user.save();
+    // Reviews store a name snapshot at write time (see Review.userName) rather
+    // than live-populating the author on every read — keep past reviews in
+    // sync so a rename shows up there too instead of going stale.
+    if (nameChanged) {
+      await Review.updateMany({ user: req.user._id }, { userName: req.user.name });
+    }
     if (isExplicitProfileEdit) {
       await createNotification({
         recipientId: req.user._id,
@@ -223,7 +267,7 @@ export async function requestPhoneChangeOtp(req, res, next) {
     if (phone === req.user.phone) throw new ApiError(400, 'That is already your phone number');
 
     const taken = await User.findOne({ phone, _id: { $ne: req.user._id } });
-    if (taken) throw new ApiError(409, 'This phone number is already in use');
+    if (taken) throw new ApiError(409, 'Mobile number already exists.');
 
     const code = issueOtp(`chphone:${phone}`);
     res.json({ message: `OTP sent to ${phone}`, ...devOtpField(code) });
@@ -242,7 +286,7 @@ export async function verifyPhoneChangeOtp(req, res, next) {
     if (!result.ok) throw new ApiError(400, otpErrorMessage(result.reason));
 
     const taken = await User.findOne({ phone, _id: { $ne: req.user._id } });
-    if (taken) throw new ApiError(409, 'This phone number is already in use');
+    if (taken) throw new ApiError(409, 'Mobile number already exists.');
 
     req.user.phone = phone;
     await req.user.save();
@@ -259,6 +303,9 @@ export async function requestEmailChangeOtp(req, res, next) {
     if (!isValidEmail(email)) throw new ApiError(400, 'Enter a valid email address');
     if (email === req.user.email) throw new ApiError(400, 'That is already your email address');
 
+    const taken = await User.findOne({ email, _id: { $ne: req.user._id } });
+    if (taken) throw new ApiError(409, 'Email already exists.');
+
     const code = issueOtp(`chemail:${email}`);
     res.json({ message: `OTP sent to ${email}`, ...devOtpField(code) });
   } catch (err) {
@@ -274,6 +321,9 @@ export async function verifyEmailChangeOtp(req, res, next) {
 
     const result = checkOtp(`chemail:${email}`, code);
     if (!result.ok) throw new ApiError(400, otpErrorMessage(result.reason));
+
+    const taken = await User.findOne({ email, _id: { $ne: req.user._id } });
+    if (taken) throw new ApiError(409, 'Email already exists.');
 
     req.user.email = email;
     await req.user.save();
@@ -316,13 +366,35 @@ export async function getFavorites(req, res, next) {
 
 export async function addAddress(req, res, next) {
   try {
-    const { label, line1, area, city, state, zip, lat, lng, isDefault } = req.body;
-    if (!line1 || !city) throw new ApiError(400, 'line1 and city are required');
+    const label = String(req.body.label ?? '').trim();
+    const line1 = String(req.body.line1 ?? '').trim();
+    const area = String(req.body.area ?? '').trim();
+    const landmark = String(req.body.landmark ?? '').trim();
+    const city = String(req.body.city ?? '').trim();
+    const state = String(req.body.state ?? '').trim();
+    const zip = String(req.body.zip ?? '').trim();
+    const phone = assertValidMobile(req.body.phone);
+    const { lat, lng, isDefault } = req.body;
+
+    if (!label) throw new ApiError(400, 'Address type is required.');
+    if (!line1) throw new ApiError(400, 'Address line is required.');
+    if (!landmark) throw new ApiError(400, 'Landmark is required.');
+    if (!city) throw new ApiError(400, 'City is required.');
+    if (!state) throw new ApiError(400, 'State is required.');
+    if (!/^\d{6}$/.test(zip)) throw new ApiError(400, 'Pincode must be exactly 6 digits.');
+
+    const isDuplicate = req.user.addresses.some(
+      (a) =>
+        a.line1.trim().toLowerCase() === line1.toLowerCase() &&
+        a.city.trim().toLowerCase() === city.toLowerCase() &&
+        (a.zip ?? '').trim() === zip
+    );
+    if (isDuplicate) throw new ApiError(409, 'This address already exists in your saved addresses.');
 
     if (isDefault) {
       req.user.addresses.forEach((a) => (a.isDefault = false));
     }
-    req.user.addresses.push({ label, line1, area, city, state, zip, lat, lng, isDefault });
+    req.user.addresses.push({ label, line1, area, landmark, city, state, zip, phone, lat, lng, isDefault });
     await req.user.save();
     await createNotification({
       recipientId: req.user._id,
