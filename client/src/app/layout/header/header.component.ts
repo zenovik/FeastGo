@@ -139,11 +139,13 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
                 aria-haspopup="true"
                 [attr.aria-expanded]="menuOpen()"
               >
-                <span
-                  class="flex h-8 w-8 items-center justify-center rounded-full bg-ink-800 text-xs font-bold text-white"
-                >
-                  {{ initials() }}
-                </span>
+                @if (auth.currentUser()?.photo; as photo) {
+                  <img [src]="photo" class="h-8 w-8 rounded-full object-cover" alt="" />
+                } @else {
+                  <span class="flex h-8 w-8 items-center justify-center rounded-full bg-ink-800 text-xs font-bold text-white">
+                    {{ initials() }}
+                  </span>
+                }
                 <app-icon name="chevron_down" [size]="14" class="text-ink-500" />
               </button>
 
