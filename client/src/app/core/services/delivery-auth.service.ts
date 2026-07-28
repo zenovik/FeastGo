@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
 import { DeliveryAccount } from '../models/role-account.model';
 import { requestWithProgress } from '../../shared/utils/http-progress';
+import { clearStoredToken, getStoredToken, setStoredToken } from '../utils/token-storage';
 
 const TOKEN_KEY = 'feastgo_delivery_token';
 
@@ -26,7 +27,7 @@ export class DeliveryAuthService {
   }
 
   private async bootstrap() {
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = getStoredToken(TOKEN_KEY);
     if (!token) {
       this.initializedSig.set(true);
       return;
@@ -35,7 +36,7 @@ export class DeliveryAuthService {
       const res = await firstValueFrom(this.http.get<{ user: DeliveryAccount }>(`${API_URL}/delivery/auth/me`));
       this.currentUserSig.set(res.user);
     } catch {
-      localStorage.removeItem(TOKEN_KEY);
+      clearStoredToken(TOKEN_KEY);
     } finally {
       this.initializedSig.set(true);
     }
@@ -94,7 +95,7 @@ export class DeliveryAuthService {
   }
 
   async logout() {
-    localStorage.removeItem(TOKEN_KEY);
+    clearStoredToken(TOKEN_KEY);
     this.currentUserSig.set(null);
     try {
       await firstValueFrom(this.http.post(`${API_URL}/delivery/auth/logout`, {}));
@@ -168,7 +169,11 @@ export class DeliveryAuthService {
   }
 
   private persist(res: DeliveryAuthResponse) {
-    localStorage.setItem(TOKEN_KEY, res.token);
+    // Session-scoped (not "remembered") — delivery has no remember-me choice,
+    // and a shared localStorage entry would leak this login into every other
+    // tab, silently swapping whichever delivery account those tabs were
+    // showing the next time their own 15s account-status poll ran.
+    setStoredToken(TOKEN_KEY, res.token, false);
     this.currentUserSig.set(res.user);
   }
 }

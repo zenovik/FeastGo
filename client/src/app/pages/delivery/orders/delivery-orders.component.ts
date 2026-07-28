@@ -6,7 +6,7 @@ import { DeliveryService } from '../../../core/services/delivery.service';
 import { RealtimeService } from '../../../core/services/realtime.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ChatPanelComponent } from '../../../shared/components/chat-panel/chat-panel.component';
-import { DeliveryNavComponent } from '../../../shared/components/delivery-shell/delivery-nav.component';
+import { DeliveryShellComponent } from '../../../shared/components/delivery-shell/delivery-shell.component';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { ImageUploadComponent } from '../../../shared/components/image-upload/image-upload.component';
 import { InrPipe } from '../../../shared/pipes/inr.pipe';
@@ -24,10 +24,10 @@ function mapsLink(lat: number | null | undefined, lng: number | null | undefined
 @Component({
   selector: 'app-delivery-orders',
   standalone: true,
-  imports: [FormsModule, DeliveryNavComponent, InrPipe, IconComponent, ImageUploadComponent, ChatPanelComponent],
+  imports: [FormsModule, DeliveryShellComponent, InrPipe, IconComponent, ImageUploadComponent, ChatPanelComponent],
   template: `
-    <app-delivery-nav />
-    <div class="container-shell max-w-2xl py-8">
+    <app-delivery-shell title="Orders">
+    <div class="max-w-2xl">
       <h1 class="font-display text-2xl font-bold text-ink-900">My Deliveries</h1>
 
       @if (loading()) {
@@ -89,21 +89,21 @@ function mapsLink(lat: number | null | undefined, lng: number | null | undefined
           <div class="mt-4 space-y-2">
             @if (o.deliveryStatus === 'assigned') {
               <div class="flex gap-2">
-                <button type="button" class="flex-1 rounded-lg bg-ink-900 py-2.5 text-sm font-bold text-white" (click)="accept()">Accept order</button>
+                <button type="button" class="flex-1 rounded-lg bg-ember-500 py-2.5 text-sm font-bold text-white" (click)="accept()">Accept order</button>
                 <button type="button" class="flex-1 rounded-lg border border-ember-500 py-2.5 text-sm font-bold text-ember-600" (click)="reject()">Reject</button>
               </div>
             }
             @if (o.deliveryStatus === 'accepted') {
-              <button type="button" class="w-full rounded-lg bg-ink-900 py-2.5 text-sm font-bold text-white" (click)="advance('reached_restaurant')">Reached restaurant</button>
+              <button type="button" class="w-full rounded-lg bg-ember-500 py-2.5 text-sm font-bold text-white" (click)="advance('reached_restaurant')">Reached restaurant</button>
             }
             @if (o.deliveryStatus === 'reached_restaurant') {
-              <button type="button" class="w-full rounded-lg bg-ink-900 py-2.5 text-sm font-bold text-white" (click)="advance('picked_up')">Mark picked up</button>
+              <button type="button" class="w-full rounded-lg bg-ember-500 py-2.5 text-sm font-bold text-white" (click)="advance('picked_up')">Mark picked up</button>
             }
             @if (o.deliveryStatus === 'picked_up') {
-              <button type="button" class="w-full rounded-lg bg-ink-900 py-2.5 text-sm font-bold text-white" (click)="advance('out_for_delivery')">Start delivery (out for delivery)</button>
+              <button type="button" class="w-full rounded-lg bg-ember-500 py-2.5 text-sm font-bold text-white" (click)="advance('out_for_delivery')">Start delivery (out for delivery)</button>
             }
             @if (o.deliveryStatus === 'out_for_delivery') {
-              <button type="button" class="w-full rounded-lg bg-ink-900 py-2.5 text-sm font-bold text-white" (click)="advance('reached_customer')">Reached customer</button>
+              <button type="button" class="w-full rounded-lg bg-ember-500 py-2.5 text-sm font-bold text-white" (click)="advance('reached_customer')">Reached customer</button>
             }
             @if (o.deliveryStatus === 'out_for_delivery' || o.deliveryStatus === 'reached_customer') {
               <div class="rounded-lg border border-dashed border-ink-200 p-3">
@@ -167,6 +167,7 @@ function mapsLink(lat: number | null | undefined, lng: number | null | undefined
         />
       </div>
     }
+    </app-delivery-shell>
   `,
 })
 export class DeliveryOrdersComponent implements OnInit, OnDestroy {

@@ -7,7 +7,7 @@ import { DeliveryAuthService } from '../../../core/services/delivery-auth.servic
 import { DeliveryEarningRow, DeliveryService } from '../../../core/services/delivery.service';
 import { ThemeMode, ThemeService } from '../../../core/services/theme.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { DeliveryNavComponent } from '../../../shared/components/delivery-shell/delivery-nav.component';
+import { DeliveryShellComponent } from '../../../shared/components/delivery-shell/delivery-shell.component';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { InrPipe } from '../../../shared/pipes/inr.pipe';
 import { normalizeMobile, validateMobile } from '../../../shared/utils/mobile-validation';
@@ -15,17 +15,17 @@ import { validateEmail } from '../../../shared/utils/profile-validation';
 
 type SectionKey = 'personal' | 'security' | 'notifications' | 'availability' | 'navigation' | 'payments' | 'language' | 'appearance' | 'support' | 'about';
 
-const SECTIONS: { key: SectionKey; emoji: string; label: string }[] = [
-  { key: 'personal', emoji: '👤', label: 'Personal Information' },
-  { key: 'security', emoji: '🔒', label: 'Security' },
-  { key: 'notifications', emoji: '🔔', label: 'Notifications' },
-  { key: 'availability', emoji: '🟢', label: 'Availability' },
-  { key: 'navigation', emoji: '🧭', label: 'Navigation' },
-  { key: 'payments', emoji: '💳', label: 'Payments' },
-  { key: 'language', emoji: '🌐', label: 'Language' },
-  { key: 'appearance', emoji: '🎨', label: 'Appearance' },
-  { key: 'support', emoji: '❓', label: 'Help & Support' },
-  { key: 'about', emoji: 'ℹ️', label: 'About' },
+const SECTIONS: { key: SectionKey; icon: string; label: string; group: 'account' | 'app' }[] = [
+  { key: 'personal', icon: 'user', label: 'Personal Information', group: 'account' },
+  { key: 'security', icon: 'lock', label: 'Security', group: 'account' },
+  { key: 'notifications', icon: 'bell', label: 'Notifications', group: 'account' },
+  { key: 'availability', icon: 'bolt', label: 'Availability', group: 'account' },
+  { key: 'navigation', icon: 'compass', label: 'Navigation', group: 'account' },
+  { key: 'payments', icon: 'credit-card', label: 'Payments', group: 'account' },
+  { key: 'language', icon: 'globe', label: 'Language', group: 'app' },
+  { key: 'appearance', icon: 'palette', label: 'Appearance', group: 'app' },
+  { key: 'support', icon: 'headset', label: 'Help & Support', group: 'app' },
+  { key: 'about', icon: 'info', label: 'About', group: 'app' },
 ];
 
 const NOTIF_TOGGLES: { key: keyof DeliveryNotificationPrefs; label: string; hint: string }[] = [
@@ -66,18 +66,40 @@ const APP_VERSION = '1.0.0';
 @Component({
   selector: 'app-delivery-settings',
   standalone: true,
-  imports: [FormsModule, RouterLink, DeliveryNavComponent, IconComponent, InrPipe, DatePipe],
+  imports: [FormsModule, RouterLink, DeliveryShellComponent, IconComponent, InrPipe, DatePipe],
   template: `
-    <app-delivery-nav />
-    <div class="container-shell max-w-4xl py-8">
+    <app-delivery-shell title="Settings">
+    <div>
       <h1 class="font-display text-2xl font-bold text-ink-900 dark:text-white">Settings</h1>
 
+      @if (auth.currentUser(); as partner) {
+        <div class="card-surface mt-4 flex flex-wrap items-center gap-4 p-5">
+          @if (partner.photo) {
+            <img [src]="partner.photo" alt="" class="h-14 w-14 shrink-0 rounded-full object-cover" />
+          } @else {
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-ember-100 text-lg font-bold text-ember-600 dark:bg-ember-500/10">
+              {{ partner.name?.charAt(0) || '?' }}
+            </div>
+          }
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-display text-lg font-bold text-ink-900 dark:text-white">{{ partner.name }}</p>
+            <p class="text-xs text-ink-400 dark:text-ink-500">
+              Partner ID {{ partner.id.slice(-8).toUpperCase() }} · <span class="capitalize">{{ partner.vehicleType }}</span> · ⭐ {{ partner.rating.average || '—' }} ({{ partner.rating.count }} deliveries)
+            </p>
+          </div>
+          <a routerLink="/delivery/profile" class="shrink-0 rounded-lg border border-ink-200 px-3 py-2 text-xs font-bold text-ink-700 hover:bg-ink-50 dark:border-ink-700 dark:text-ink-200 dark:hover:bg-ink-700/50">View Profile</a>
+        </div>
+      }
+
       <div class="mt-6 flex flex-col gap-6 md:flex-row">
-        <nav class="flex gap-1.5 overflow-x-auto pb-2 md:sticky md:top-20 md:h-fit md:w-56 md:shrink-0 md:flex-col md:overflow-visible md:pb-0">
+        <nav class="card-surface shrink-0 space-y-0.5 p-2 md:sticky md:top-20 md:h-fit md:w-72">
           @for (s of sections; track s.key) {
+            @if (s.group === 'app' && sections[$index - 1]?.group !== 'app') {
+              <p class="px-3 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-ink-400">App preferences</p>
+            }
             <button
               type="button"
-              class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition"
+              class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition"
               [class.bg-ember-50]="activeSection() === s.key"
               [class.dark:bg-ember-500/10]="activeSection() === s.key"
               [class.text-ember-600]="activeSection() === s.key"
@@ -88,7 +110,17 @@ const APP_VERSION = '1.0.0';
               [class.dark:hover:bg-ink-700/50]="activeSection() !== s.key"
               (click)="selectSection(s.key)"
             >
-              <span aria-hidden="true">{{ s.emoji }}</span> {{ s.label }}
+              <span
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                [class.bg-ember-100]="activeSection() === s.key"
+                [class.dark:bg-ember-500/20]="activeSection() === s.key"
+                [class.bg-ink-100]="activeSection() !== s.key"
+                [class.dark:bg-ink-700]="activeSection() !== s.key"
+              >
+                <app-icon [name]="s.icon" [size]="16" />
+              </span>
+              <span class="min-w-0 flex-1 truncate">{{ s.label }}</span>
+              <app-icon name="chevron_right" [size]="16" class="shrink-0 text-ink-300 dark:text-ink-600" />
             </button>
           }
         </nav>
@@ -110,7 +142,7 @@ const APP_VERSION = '1.0.0';
                   <p class="truncate text-sm font-bold text-ink-900 dark:text-white">{{ auth.currentUser()?.name }}</p>
                   <p class="truncate text-xs text-ink-400 dark:text-ink-500">{{ auth.currentUser()?.email }}</p>
                 </div>
-                <a routerLink="/delivery/profile" class="shrink-0 rounded-lg bg-ink-900 px-3 py-2 text-xs font-bold text-white dark:bg-white dark:text-ink-900">Edit Profile</a>
+                <a routerLink="/delivery/profile" class="shrink-0 rounded-lg bg-ember-500 px-3 py-2 text-xs font-bold text-white">Edit Profile</a>
               </div>
             </div>
           }
@@ -124,7 +156,7 @@ const APP_VERSION = '1.0.0';
                 <div class="mt-2 space-y-2">
                   <input type="password" [(ngModel)]="currentPassword" name="currentPassword" placeholder="Current password" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
                   <input type="password" [(ngModel)]="newPassword" name="newPassword" placeholder="New password (min 6 characters)" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
-                  <button type="button" [disabled]="changingPassword() || !currentPassword || newPassword.length < 6" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900" (click)="changePassword()">
+                  <button type="button" [disabled]="changingPassword() || !currentPassword || newPassword.length < 6" class="rounded-lg bg-ember-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" (click)="changePassword()">
                     {{ changingPassword() ? 'Updating…' : 'Update password' }}
                   </button>
                 </div>
@@ -136,7 +168,7 @@ const APP_VERSION = '1.0.0';
                 @if (changingField() !== 'phone') {
                   <div class="mt-2 flex items-center gap-2">
                     <input type="tel" [(ngModel)]="newPhone" name="newPhone" placeholder="New mobile number" class="w-full flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
-                    <button type="button" [disabled]="!newPhone.trim()" class="shrink-0 rounded-lg bg-ink-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900" (click)="requestChange('phone')">
+                    <button type="button" [disabled]="!newPhone.trim()" class="shrink-0 rounded-lg bg-ember-500 px-3 py-2 text-xs font-bold text-white disabled:opacity-50" (click)="requestChange('phone')">
                       Send OTP
                     </button>
                   </div>
@@ -150,7 +182,7 @@ const APP_VERSION = '1.0.0';
                     }
                     <div class="mt-2 flex gap-2">
                       <input type="text" inputmode="numeric" maxlength="4" [(ngModel)]="changeCode" name="phoneChangeCode" placeholder="4-digit code" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
-                      <button type="button" [disabled]="changeSubmitting()" class="shrink-0 rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900" (click)="submitChange('phone')">
+                      <button type="button" [disabled]="changeSubmitting()" class="shrink-0 rounded-lg bg-ember-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" (click)="submitChange('phone')">
                         {{ changeSubmitting() ? 'Verifying…' : 'Verify' }}
                       </button>
                       <button type="button" class="shrink-0 rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold text-ink-500 dark:border-ink-700 dark:text-ink-400" (click)="cancelChange()">Cancel</button>
@@ -165,7 +197,7 @@ const APP_VERSION = '1.0.0';
                 @if (changingField() !== 'email') {
                   <div class="mt-2 flex items-center gap-2">
                     <input type="email" [(ngModel)]="newEmail" name="newEmail" placeholder="New email address" class="w-full flex-1 rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
-                    <button type="button" [disabled]="!newEmail.trim()" class="shrink-0 rounded-lg bg-ink-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900" (click)="requestChange('email')">
+                    <button type="button" [disabled]="!newEmail.trim()" class="shrink-0 rounded-lg bg-ember-500 px-3 py-2 text-xs font-bold text-white disabled:opacity-50" (click)="requestChange('email')">
                       Send OTP
                     </button>
                   </div>
@@ -179,7 +211,7 @@ const APP_VERSION = '1.0.0';
                     }
                     <div class="mt-2 flex gap-2">
                       <input type="text" inputmode="numeric" maxlength="4" [(ngModel)]="changeCode" name="emailChangeCode" placeholder="4-digit code" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
-                      <button type="button" [disabled]="changeSubmitting()" class="shrink-0 rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900" (click)="submitChange('email')">
+                      <button type="button" [disabled]="changeSubmitting()" class="shrink-0 rounded-lg bg-ember-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" (click)="submitChange('email')">
                         {{ changeSubmitting() ? 'Verifying…' : 'Verify' }}
                       </button>
                       <button type="button" class="shrink-0 rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold text-ink-500 dark:border-ink-700 dark:text-ink-400" (click)="cancelChange()">Cancel</button>
@@ -308,7 +340,7 @@ const APP_VERSION = '1.0.0';
               <div class="card-surface p-5">
                 <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Bank & UPI</h2>
                 <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Your payout account details are managed from your Profile page.</p>
-                <a routerLink="/delivery/profile" class="mt-3 inline-block rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-ink-900">Manage Bank & UPI</a>
+                <a routerLink="/delivery/profile" class="mt-3 inline-block rounded-lg bg-ember-500 px-4 py-2 text-sm font-semibold text-white">Manage Bank & UPI</a>
               </div>
 
               <div class="card-surface p-5">
@@ -399,7 +431,7 @@ const APP_VERSION = '1.0.0';
                 <form class="mt-3 space-y-2" (submit)="sendSupportMessage($event)">
                   <input [(ngModel)]="supportSubject" name="supportSubject" placeholder="Subject" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
                   <textarea [(ngModel)]="supportMessage" name="supportMessage" rows="3" placeholder="How can we help?" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white"></textarea>
-                  <button type="submit" [disabled]="submittingSupport()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900">
+                  <button type="submit" [disabled]="submittingSupport()" class="rounded-lg bg-ember-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
                     {{ submittingSupport() ? 'Sending…' : 'Send message' }}
                   </button>
                 </form>
@@ -433,6 +465,7 @@ const APP_VERSION = '1.0.0';
         </div>
       </div>
     </div>
+    </app-delivery-shell>
   `,
 })
 export class DeliverySettingsComponent implements OnInit {
@@ -456,19 +489,18 @@ export class DeliverySettingsComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.applySectionFromRoute();
-    this.route.paramMap.subscribe(() => this.applySectionFromRoute());
+    // Read once on entry so deep links (e.g. "Settings → Security" from the
+    // Profile page) still open the right section — but switching sections
+    // from here on out is a plain in-place signal update, same as admin's
+    // settings tabs, so it never re-navigates or reloads the page.
+    const section = this.route.snapshot.paramMap.get('section') as SectionKey | null;
+    if (section && this.sections.some((s) => s.key === section)) this.activeSection.set(section);
     this.acceptRadiusKm = this.auth.currentUser()?.acceptRadiusKm ?? 5;
     this.loadHistory();
   }
 
-  private applySectionFromRoute() {
-    const section = this.route.snapshot.paramMap.get('section') as SectionKey | null;
-    if (section && this.sections.some((s) => s.key === section)) this.activeSection.set(section);
-  }
-
   selectSection(key: SectionKey) {
-    this.router.navigate(['/delivery/settings', key]);
+    this.activeSection.set(key);
   }
 
   // ---- Security ----

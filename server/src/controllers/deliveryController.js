@@ -485,3 +485,30 @@ export async function getDashboardStats(req, res, next) {
     next(err);
   }
 }
+
+// Earnings per weekday (Mon-Sun) for the current week, for the dashboard's
+// weekly performance chart.
+export async function getWeeklyPerformance(req, res, next) {
+  try {
+    const now = new Date();
+    const mondayOffset = (now.getDay() + 6) % 7; // getDay(): 0=Sun..6=Sat -> days since this week's Monday
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - mondayOffset);
+
+    const rows = await DeliveryEarning.aggregate([
+      { $match: { partner: req.user._id, createdAt: { $gte: monday } } },
+      { $group: { _id: { $dayOfWeek: '$createdAt' }, total: { $sum: '$total' } } },
+    ]);
+
+    // Mongo's $dayOfWeek is 1=Sunday..7=Saturday; map that onto a Mon-first week.
+    const totalByMongoDow = Object.fromEntries(rows.map((r) => [r._id, r.total]));
+    const LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const MONGO_DOW_FOR_LABEL = [2, 3, 4, 5, 6, 7, 1];
+    const days = LABELS.map((day, i) => ({ day, total: totalByMongoDow[MONGO_DOW_FOR_LABEL[i]] ?? 0 }));
+
+    res.json({ days });
+  } catch (err) {
+    next(err);
+  }
+}

@@ -29,6 +29,11 @@ export interface DeliveryEarningsSummary {
   dailyTarget: number;
 }
 
+export interface DeliveryWeeklyPerformanceDay {
+  day: string;
+  total: number;
+}
+
 export interface DeliveryEarningRow {
   _id: string;
   order: { _id: string; restaurantName: string; total: number } | null;
@@ -81,6 +86,10 @@ export class DeliveryService {
 
   getDashboardStats() {
     return firstValueFrom(this.http.get<DeliveryDashboardStats>(`${API_URL}/delivery/dashboard/stats`));
+  }
+
+  getWeeklyPerformance() {
+    return firstValueFrom(this.http.get<{ days: DeliveryWeeklyPerformanceDay[] }>(`${API_URL}/delivery/dashboard/weekly-performance`));
   }
 
   listEarningsHistory(page = 1, limit = 20) {

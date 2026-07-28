@@ -8,38 +8,54 @@
   --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   --font-sans: 'Inter', system-ui, sans-serif;
 
-  /* FeastGo brand: ember (primary), ink (neutral dark), basil (accent/success), gold (ratings & offers) */
-  --color-ember-50: #fff3ee;
+  /* Official FeastGo design system — one brand identity across Customer,
+     Seller, Delivery Partner, and Admin. Primary is always ember (orange);
+     never substitute blue/purple/other accents for it. */
+  --color-ember-50: #fff2ee;
   --color-ember-100: #ffe1d3;
   --color-ember-200: #ffc0a8;
   --color-ember-300: #ff9a75;
   --color-ember-400: #ff7548;
-  --color-ember-500: #ff5127;
-  --color-ember-600: #f13911;
+  --color-ember-500: #ff5a3c;
+  --color-ember-600: #e64a2e;
   --color-ember-700: #c72b0c;
   --color-ember-800: #9e230f;
   --color-ember-900: #7f2010;
 
-  --color-ink-50: #f5f5f7;
-  --color-ink-100: #e6e5ea;
-  --color-ink-200: #c7c5d1;
+  --color-ink-50: #f8f8f8;
+  --color-ink-100: #e5e7eb;
+  --color-ink-200: #d1d5db;
   --color-ink-300: #9c98ab;
-  --color-ink-400: #6c6780;
+  --color-ink-400: #6b7280;
   --color-ink-500: #4a465c;
   --color-ink-600: #363248;
   --color-ink-700: #26232f;
   --color-ink-800: #19171f;
-  --color-ink-900: #100f14;
+  --color-ink-900: #1c1c1c;
 
-  --color-basil-50: #eefbf7;
-  --color-basil-100: #d3f4ea;
-  --color-basil-400: #33baa0;
-  --color-basil-500: #1a9f86;
-  --color-basil-600: #12806c;
+  --color-basil-50: #f0fdf4;
+  --color-basil-100: #dcfce7;
+  --color-basil-400: #4ade80;
+  --color-basil-500: #22c55e;
+  --color-basil-600: #16a34a;
 
-  --color-gold-400: #ffc94d;
-  --color-gold-500: #f5ab1c;
-  --color-gold-600: #d68c0a;
+  --color-gold-400: #fbbf24;
+  --color-gold-500: #f59e0b;
+  --color-gold-600: #d97706;
+
+  /* True error red — distinct from the ember brand color, per spec
+     ("Error: #EF4444") — for validation/error states, not CTAs. */
+  --color-danger-50: #fef2f2;
+  --color-danger-100: #fee2e2;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+
+  /* Informational (non-brand, non-error) accent — spec's "Information: #3B82F6". */
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
 
   --shadow-card: 0 1px 2px rgba(16, 15, 20, 0.04), 0 8px 24px -8px rgba(16, 15, 20, 0.12);
   --shadow-card-hover: 0 4px 8px rgba(16, 15, 20, 0.06), 0 16px 32px -12px rgba(16, 15, 20, 0.18);
@@ -80,10 +96,11 @@
   }
 
   .card-surface {
-    @apply rounded-2xl bg-white shadow-[var(--shadow-card)] transition-shadow duration-200 dark:bg-ink-800 dark:shadow-none;
+    @apply rounded-[20px] border border-ink-100 bg-white shadow-[var(--shadow-card)] transition-[box-shadow,transform] duration-200 dark:border-ink-800 dark:bg-ink-800 dark:shadow-none;
   }
   .card-surface:hover {
     box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
   }
 }
 

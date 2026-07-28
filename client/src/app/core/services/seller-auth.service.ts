@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
 import { SellerAccount } from '../models/role-account.model';
 import { Restaurant } from '../models/restaurant.model';
+import { clearStoredToken, getStoredToken, setStoredToken } from '../utils/token-storage';
 
 const TOKEN_KEY = 'feastgo_seller_token';
 
@@ -26,7 +27,7 @@ export class SellerAuthService {
   }
 
   private async bootstrap() {
-    const token = localStorage.getItem(TOKEN_KEY);
+    const token = getStoredToken(TOKEN_KEY);
     if (!token) {
       this.initializedSig.set(true);
       return;
@@ -35,7 +36,7 @@ export class SellerAuthService {
       const res = await firstValueFrom(this.http.get<{ user: SellerAccount }>(`${API_URL}/seller/auth/me`));
       this.currentUserSig.set(res.user);
     } catch {
-      localStorage.removeItem(TOKEN_KEY);
+      clearStoredToken(TOKEN_KEY);
     } finally {
       this.initializedSig.set(true);
     }
@@ -56,7 +57,7 @@ export class SellerAuthService {
   }
 
   async logout() {
-    localStorage.removeItem(TOKEN_KEY);
+    clearStoredToken(TOKEN_KEY);
     this.currentUserSig.set(null);
     try {
       await firstValueFrom(this.http.post(`${API_URL}/seller/auth/logout`, {}));
@@ -94,7 +95,11 @@ export class SellerAuthService {
   }
 
   private persist(res: SellerAuthResponse) {
-    localStorage.setItem(TOKEN_KEY, res.token);
+    // Session-scoped (not "remembered") — seller has no remember-me choice,
+    // and a shared localStorage entry would leak this login into every other
+    // tab, silently swapping whichever seller account those tabs were showing
+    // the next time their own 15s account-status poll ran.
+    setStoredToken(TOKEN_KEY, res.token, false);
     this.currentUserSig.set(res.user);
   }
 }

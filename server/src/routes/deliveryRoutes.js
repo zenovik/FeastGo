@@ -45,6 +45,7 @@ router.patch('/location', requireRole('delivery'), delivery.updateLocation);
 router.get('/earnings', requireRole('delivery'), delivery.getMyEarnings);
 router.get('/earnings/history', requireRole('delivery'), delivery.listMyEarningsHistory);
 router.get('/dashboard/stats', requireRole('delivery'), delivery.getDashboardStats);
+router.get('/dashboard/weekly-performance', requireRole('delivery'), delivery.getWeeklyPerformance);
 
 // Notifications
 router.get('/notifications', requireRole('delivery'), notifications.listMyNotifications);

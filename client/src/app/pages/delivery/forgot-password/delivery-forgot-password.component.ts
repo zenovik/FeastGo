@@ -26,7 +26,7 @@ import { IconComponent } from '../../../shared/components/icon/icon.component';
         @if (!otpSent()) {
           <form class="space-y-3" (submit)="requestOtp($event)">
             <input type="email" [(ngModel)]="email" name="email" required placeholder="Your account email" class="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-ember-400" />
-            <button type="submit" [disabled]="submitting()" class="w-full rounded-lg bg-ink-900 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+            <button type="submit" [disabled]="submitting()" class="w-full rounded-lg bg-ember-500 py-2.5 text-sm font-bold text-white disabled:opacity-50">
               {{ submitting() ? 'Sending…' : 'Send reset code' }}
             </button>
           </form>

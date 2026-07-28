@@ -65,6 +65,11 @@ const ICONS: Record<string, string> = {
   store: '<path d="M3 7l1.5-4h15L21 7"/><path d="M3 7h18v3a3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1-3 3 3 3 0 0 1-3-3 3 3 0 0 1-3 3 3 3 0 0 1-3-3V7Z"/><path d="M5 13v8h14v-8"/>',
   megaphone: '<path d="M3 11v2a2 2 0 0 0 2 2h1l3 6V9L6 15H5a2 2 0 0 0-2-2Z"/><path d="M11 9l8-4v14l-8-4"/>',
   history: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l4 2"/>',
+  award: '<circle cx="12" cy="8" r="6"/><path d="M8.5 13.5 7 22l5-3 5 3-1.5-8.5"/>',
+  gift: '<rect x="3" y="8" width="18" height="13" rx="1"/><path d="M3 8h18v4H3z"/><path d="M12 8v13"/><path d="M12 8H8a2.5 2.5 0 0 1 0-5c2 0 4 2.5 4 5Z"/><path d="M12 8h4a2.5 2.5 0 0 0 0-5c-2 0-4 2.5-4 5Z"/>',
+  headset: '<path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="2" y="13" width="5" height="7" rx="2"/><rect x="17" y="13" width="5" height="7" rx="2"/><path d="M20 20a4 4 0 0 1-4 4h-2"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 4 5.7 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.7-4-9s1.5-6.5 4-9Z"/>',
+  palette: '<path d="M12 2a10 10 0 1 0 0 20c1.2 0 2-1 2-2 0-.6-.3-1.1-.6-1.5-.3-.4-.5-.8-.5-1.3 0-.9.7-1.6 1.6-1.6H16a4 4 0 0 0 4-4c0-5-3.6-9.6-8-9.6Z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor" stroke="none"/><circle cx="10.5" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="14.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="16.5" cy="11.5" r="1.2" fill="currentColor" stroke="none"/>',
 };
 
 @Component({
