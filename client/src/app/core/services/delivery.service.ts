@@ -11,6 +11,8 @@ export interface DeliveryDashboardStats {
   activeDeliveries: number;
   completedDeliveries: number;
   cancelledDeliveries: number;
+  failedDeliveries: number;
+  successRate: number;
   rating: { average: number; count: number };
   recentDeliveries: Order[];
 }
@@ -21,7 +23,21 @@ export interface DeliveryEarningsSummary {
   todayEarnings: number;
   weeklyEarnings: number;
   monthlyEarnings: number;
+  tipsReceived: number;
+  incentives: number;
+  pendingPayments: number;
   dailyTarget: number;
+}
+
+export interface DeliveryEarningRow {
+  _id: string;
+  order: { _id: string; restaurantName: string; total: number } | null;
+  baseFee: number;
+  tip: number;
+  bonus: number;
+  total: number;
+  paid: boolean;
+  createdAt: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -65,6 +81,14 @@ export class DeliveryService {
 
   getDashboardStats() {
     return firstValueFrom(this.http.get<DeliveryDashboardStats>(`${API_URL}/delivery/dashboard/stats`));
+  }
+
+  listEarningsHistory(page = 1, limit = 20) {
+    return firstValueFrom(
+      this.http.get<{ earnings: DeliveryEarningRow[]; total: number; page: number; limit: number }>(`${API_URL}/delivery/earnings/history`, {
+        params: { page: String(page), limit: String(limit) },
+      })
+    );
   }
 
   listMessages(orderId: string, withRole: 'customer' | 'seller') {

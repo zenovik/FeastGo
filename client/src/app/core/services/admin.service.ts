@@ -9,6 +9,7 @@ import { Order } from '../models/order.model';
 import { SellerAccount, DeliveryAccount, AdminAccount } from '../models/role-account.model';
 import { AuditLog } from '../models/audit-log.model';
 import { SystemSettings } from '../models/system-settings.model';
+import { ExploreCard } from '../models/explore-card.model';
 import { requestWithProgress } from '../../shared/utils/http-progress';
 
 export interface AdminCategory {
@@ -362,6 +363,33 @@ export class AdminService {
 
   deleteCategory(id: string) {
     return firstValueFrom(this.http.delete(`${API_URL}/admin/categories/${id}`));
+  }
+
+  // ---- Explore cards ----
+  listExploreCards() {
+    return firstValueFrom(this.http.get<{ cards: ExploreCard[] }>(`${API_URL}/admin/explore-cards`));
+  }
+
+  createExploreCard(payload: Partial<ExploreCard>, onProgress?: (pct: number) => void) {
+    return requestWithProgress<{ card: ExploreCard }>(
+      this.http.post<{ card: ExploreCard }>(`${API_URL}/admin/explore-cards`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
+  }
+
+  updateExploreCard(id: string, payload: Partial<ExploreCard>, onProgress?: (pct: number) => void) {
+    return requestWithProgress<{ card: ExploreCard }>(
+      this.http.patch<{ card: ExploreCard }>(`${API_URL}/admin/explore-cards/${id}`, payload, { reportProgress: true, observe: 'events' }),
+      onProgress
+    );
+  }
+
+  reorderExploreCards(cardIds: string[]) {
+    return firstValueFrom(this.http.patch<{ message: string }>(`${API_URL}/admin/explore-cards/reorder`, { cardIds }));
+  }
+
+  deleteExploreCard(id: string) {
+    return firstValueFrom(this.http.delete(`${API_URL}/admin/explore-cards/${id}`));
   }
 
   // ---- Coupons ----

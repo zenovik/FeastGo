@@ -1,5 +1,5 @@
 import { Component, ElementRef, EventEmitter, Input, Output, ViewChild, signal } from '@angular/core';
-import { readImageFileAsDataUrl, validateImageFile } from '../../utils/image-file';
+import { isPdfDataUrl, readImageFileAsDataUrl, validateImageFile } from '../../utils/image-file';
 import { IconComponent } from '../icon/icon.component';
 
 export type ImageUploadShape = 'circle' | 'square' | 'banner';
@@ -52,7 +52,12 @@ export type ImageUploadShape = 'circle' | 'square' | 'banner';
         (dragleave)="dragOver.set(false)"
         (drop)="onDrop($event)"
       >
-        @if (displaySrc()) {
+        @if (displaySrc() && isPdf()) {
+          <div class="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center text-ember-500">
+            <app-icon name="receipt" [size]="shape === 'banner' ? 22 : 16" />
+            <span class="text-[11px] font-semibold">PDF attached</span>
+          </div>
+        } @else if (displaySrc()) {
           <img [src]="displaySrc()" alt="" class="h-full w-full object-cover" />
         } @else {
           <div class="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center">
@@ -92,7 +97,7 @@ export type ImageUploadShape = 'circle' | 'square' | 'banner';
       <input
         #fileInput
         type="file"
-        accept="image/jpeg,image/jpg,image/png,image/webp"
+        [attr.accept]="acceptAttr()"
         [multiple]="multiple"
         class="hidden"
         (change)="onFileInputChange($event)"
@@ -109,6 +114,7 @@ export class ImageUploadComponent {
   @Input() progress: number | null = null;
   @Input() disabled = false;
   @Input() label = 'Change image';
+  @Input() allowPdf = false;
 
   @Input()
   set value(v: string | null) {
@@ -132,6 +138,14 @@ export class ImageUploadComponent {
 
   displaySrc(): string | null {
     return this.pendingPreview() ?? this.value;
+  }
+
+  isPdf(): boolean {
+    return isPdfDataUrl(this.displaySrc());
+  }
+
+  acceptAttr(): string {
+    return this.allowPdf ? 'image/jpeg,image/jpg,image/png,application/pdf' : 'image/jpeg,image/jpg,image/png,image/webp';
   }
 
   discardPending() {
@@ -161,7 +175,7 @@ export class ImageUploadComponent {
     if (!fileList?.length) return;
     const files = this.multiple ? Array.from(fileList) : [fileList[0]];
     for (const file of files) {
-      const error = validateImageFile(file, this.maxBytes);
+      const error = validateImageFile(file, this.maxBytes, this.allowPdf);
       if (error) {
         this.invalidFile.emit(error);
         continue;

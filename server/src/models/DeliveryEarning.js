@@ -10,6 +10,10 @@ const deliveryEarningSchema = new mongoose.Schema(
     tip: { type: Number, default: 0 },
     bonus: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
+    // No payout/settlement run exists yet — every row starts unpaid and stays
+    // that way until a future admin payout feature marks it settled, same as
+    // a real gig-platform's earnings sit "pending" until the next payout cycle.
+    paid: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

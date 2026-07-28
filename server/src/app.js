@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import authRoutes from './routes/authRoutes.js';
 import restaurantRoutes from './routes/restaurantRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
+import exploreCardRoutes from './routes/exploreCardRoutes.js';
 import foodRoutes from './routes/foodRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import sellerRoutes from './routes/sellerRoutes.js';
@@ -35,6 +36,7 @@ export function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/restaurants', restaurantRoutes);
   app.use('/api/categories', categoryRoutes);
+  app.use('/api/explore-cards', exploreCardRoutes);
   app.use('/api/food-items', foodRoutes);
   app.use('/api/orders', orderRoutes);
   app.use('/api/seller', sellerRoutes);

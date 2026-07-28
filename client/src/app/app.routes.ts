@@ -186,6 +186,18 @@ export const routes: Routes = [
     title: 'Delivery profile — FeastGo',
     canActivate: [deliveryGuard],
   },
+  {
+    path: 'delivery/settings',
+    pathMatch: 'full',
+    redirectTo: 'delivery/settings/personal',
+  },
+  {
+    path: 'delivery/settings/:section',
+    loadComponent: () =>
+      import('./pages/delivery/settings/delivery-settings.component').then((m) => m.DeliverySettingsComponent),
+    title: 'Delivery settings — FeastGo',
+    canActivate: [deliveryGuard],
+  },
 
   // ---- Admin ----
   {
@@ -237,6 +249,13 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/admin/categories/admin-categories.component').then((m) => m.AdminCategoriesComponent),
     title: 'Categories — FeastGo',
+    canActivate: [adminGuard],
+  },
+  {
+    path: 'admin/explore-cards',
+    loadComponent: () =>
+      import('./pages/admin/explore-cards/admin-explore-cards.component').then((m) => m.AdminExploreCardsComponent),
+    title: 'Explore Cards — FeastGo',
     canActivate: [adminGuard],
   },
   {

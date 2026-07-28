@@ -62,7 +62,17 @@ import { InrPipe } from '../../../shared/pipes/inr.pipe';
 })
 export class DeliveryHistoryComponent implements OnInit {
   orders = signal<Order[]>([]);
-  earnings = signal<DeliveryEarningsSummary>({ orderCount: 0, totalEarnings: 0, todayEarnings: 0, weeklyEarnings: 0, monthlyEarnings: 0, dailyTarget: 1000 });
+  earnings = signal<DeliveryEarningsSummary>({
+    orderCount: 0,
+    totalEarnings: 0,
+    todayEarnings: 0,
+    weeklyEarnings: 0,
+    monthlyEarnings: 0,
+    tipsReceived: 0,
+    incentives: 0,
+    pendingPayments: 0,
+    dailyTarget: 1000,
+  });
 
   constructor(private deliveryService: DeliveryService) {}
 

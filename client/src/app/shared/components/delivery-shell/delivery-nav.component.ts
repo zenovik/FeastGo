@@ -1,7 +1,8 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, effect } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { DeliveryAuthService } from '../../../core/services/delivery-auth.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { ThemeService } from '../../../core/services/theme.service';
 import { IconComponent } from '../icon/icon.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 
@@ -10,21 +11,30 @@ import { NotificationBellComponent } from '../notification-bell/notification-bel
   standalone: true,
   imports: [RouterLink, RouterLinkActive, IconComponent, NotificationBellComponent],
   template: `
-    <header class="border-b border-ink-100 bg-white">
+    <header class="border-b border-ink-100 bg-white dark:border-ink-700 dark:bg-ink-900">
       <div class="container-shell flex h-16 items-center gap-6">
-        <a routerLink="/delivery/dashboard" class="flex items-center gap-2 font-display text-lg font-extrabold text-ink-900">
+        <a routerLink="/delivery/dashboard" class="flex items-center gap-2 font-display text-lg font-extrabold text-ink-900 dark:text-white">
           <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-ember-500 text-white">
             <app-icon name="bike" [size]="16" />
           </span>
           Delivery Panel
         </a>
         <nav class="ml-auto flex items-center gap-1 text-sm font-semibold">
-          <a routerLink="/delivery/dashboard" routerLinkActive="text-ember-600 bg-ember-50" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50">Dashboard</a>
-          <a routerLink="/delivery/orders" routerLinkActive="text-ember-600 bg-ember-50" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50">Orders</a>
-          <a routerLink="/delivery/history" routerLinkActive="text-ember-600 bg-ember-50" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50">History</a>
-          <a routerLink="/delivery/profile" routerLinkActive="text-ember-600 bg-ember-50" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50">Profile</a>
-          <app-notification-bell role="delivery" [iconSize]="18" />
-          <button type="button" class="ml-2 rounded-lg px-3 py-2 text-ember-600 hover:bg-ember-50" (click)="logout()">Sign out</button>
+          <a routerLink="/delivery/dashboard" routerLinkActive="text-ember-600 bg-ember-50 dark:bg-ember-500/10" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50 dark:text-ink-300 dark:hover:bg-ink-800">Dashboard</a>
+          <a routerLink="/delivery/orders" routerLinkActive="text-ember-600 bg-ember-50 dark:bg-ember-500/10" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50 dark:text-ink-300 dark:hover:bg-ink-800">Orders</a>
+          <a routerLink="/delivery/history" routerLinkActive="text-ember-600 bg-ember-50 dark:bg-ember-500/10" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50 dark:text-ink-300 dark:hover:bg-ink-800">History</a>
+          <a routerLink="/delivery/profile" routerLinkActive="text-ember-600 bg-ember-50 dark:bg-ember-500/10" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50 dark:text-ink-300 dark:hover:bg-ink-800">Profile</a>
+          <a routerLink="/delivery/settings" routerLinkActive="text-ember-600 bg-ember-50 dark:bg-ember-500/10" class="rounded-lg px-3 py-2 text-ink-600 hover:bg-ink-50 dark:text-ink-300 dark:hover:bg-ink-800">Settings</a>
+          <button
+            type="button"
+            class="rounded-lg p-2 text-ink-500 hover:bg-ink-50 dark:text-ink-300 dark:hover:bg-ink-800"
+            (click)="theme.toggle()"
+            [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+          >
+            <app-icon [name]="theme.dark() ? 'sun' : 'moon'" [size]="18" />
+          </button>
+          <app-notification-bell role="delivery" [dark]="theme.dark()" [iconSize]="18" />
+          <button type="button" class="ml-2 rounded-lg px-3 py-2 text-ember-600 hover:bg-ember-50 dark:hover:bg-ember-500/10" (click)="logout()">Sign out</button>
         </nav>
       </div>
     </header>
@@ -36,8 +46,22 @@ export class DeliveryNavComponent implements OnInit, OnDestroy {
   constructor(
     public auth: DeliveryAuthService,
     public notif: NotificationService,
+    public theme: ThemeService,
     private router: Router
-  ) {}
+  ) {
+    // No shared root wrapper exists for the delivery portal (unlike the
+    // seller/admin shells), so this nav — present on every delivery page —
+    // is the closest thing to one: it toggles `.dark` on <html> itself so
+    // the class cascades to whatever page template sits below it, and clears
+    // it on destroy so it can't leak into the customer/seller portals.
+    effect(() => {
+      document.documentElement.classList.toggle('dark', this.theme.dark());
+    });
+    effect(() => {
+      const serverTheme = this.auth.currentUser()?.theme;
+      if (serverTheme) this.theme.syncFromServer(serverTheme);
+    });
+  }
 
   ngOnInit() {
     this.notif.init('delivery');
@@ -56,6 +80,7 @@ export class DeliveryNavComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.accountPollHandle) clearInterval(this.accountPollHandle);
+    document.documentElement.classList.remove('dark');
   }
 
   async logout() {

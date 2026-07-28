@@ -19,6 +19,9 @@ export interface FoodQuery {
   offers?: boolean;
   topRated?: boolean;
   newArrival?: boolean;
+  featured?: boolean;
+  freeDelivery?: boolean;
+  bogo?: boolean;
   minRating?: number;
   priceRange?: FoodPriceRange;
   sort?: FoodSort;
@@ -43,6 +46,9 @@ export class FoodService {
     if (query.offers) params['offers'] = 'true';
     if (query.topRated) params['topRated'] = 'true';
     if (query.newArrival) params['newArrival'] = 'true';
+    if (query.featured) params['featured'] = 'true';
+    if (query.freeDelivery) params['freeDelivery'] = 'true';
+    if (query.bogo) params['bogo'] = 'true';
     if (query.minRating) params['minRating'] = String(query.minRating);
     if (query.priceRange) params['priceRange'] = query.priceRange;
     if (query.sort) params['sort'] = query.sort;

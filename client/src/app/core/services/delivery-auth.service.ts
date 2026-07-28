@@ -123,6 +123,50 @@ export class DeliveryAuthService {
     return res.user;
   }
 
+  requestPhoneChangeOtp(phone: string) {
+    return firstValueFrom(this.http.post<{ message: string; devOtp: string }>(`${API_URL}/delivery/auth/change-phone/request`, { phone }));
+  }
+
+  async verifyPhoneChangeOtp(phone: string, code: string) {
+    const res = await firstValueFrom(
+      this.http.post<{ user: DeliveryAccount }>(`${API_URL}/delivery/auth/change-phone/verify`, { phone, code })
+    );
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  requestEmailChangeOtp(email: string) {
+    return firstValueFrom(this.http.post<{ message: string; devOtp: string }>(`${API_URL}/delivery/auth/change-email/request`, { email }));
+  }
+
+  async verifyEmailChangeOtp(email: string, code: string) {
+    const res = await firstValueFrom(
+      this.http.post<{ user: DeliveryAccount }>(`${API_URL}/delivery/auth/change-email/verify`, { email, code })
+    );
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
+  async logoutAllDevices() {
+    const res = await firstValueFrom(
+      this.http.post<DeliveryAuthResponse>(`${API_URL}/delivery/auth/logout-all-devices`, {})
+    );
+    this.persist(res);
+    return res.user;
+  }
+
+  submitSupportRequest(subject: string, message: string) {
+    return firstValueFrom(this.http.post<{ message: string }>(`${API_URL}/delivery/auth/support-request`, { subject, message }));
+  }
+
+  async deleteDocument(field: keyof DeliveryAccount['documents']) {
+    const res = await firstValueFrom(
+      this.http.delete<{ user: DeliveryAccount }>(`${API_URL}/delivery/auth/documents/${field}`)
+    );
+    this.currentUserSig.set(res.user);
+    return res.user;
+  }
+
   private persist(res: DeliveryAuthResponse) {
     localStorage.setItem(TOKEN_KEY, res.token);
     this.currentUserSig.set(res.user);

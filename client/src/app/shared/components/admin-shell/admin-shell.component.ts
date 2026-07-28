@@ -36,6 +36,7 @@ const NAV_GROUPS: NavGroup[] = [
       { path: '/admin/restaurants', label: 'Restaurants', icon: 'store' },
       { path: '/admin/foods', label: 'Foods', icon: 'package' },
       { path: '/admin/categories', label: 'Categories', icon: 'layers' },
+      { path: '/admin/explore-cards', label: 'Explore Cards', icon: 'compass' },
     ],
   },
   {

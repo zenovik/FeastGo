@@ -14,6 +14,8 @@ const EMPTY_STATS: DeliveryDashboardStats = {
   activeDeliveries: 0,
   completedDeliveries: 0,
   cancelledDeliveries: 0,
+  failedDeliveries: 0,
+  successRate: 0,
   rating: { average: 0, count: 0 },
   recentDeliveries: [],
 };
@@ -24,6 +26,9 @@ const EMPTY_EARNINGS: DeliveryEarningsSummary = {
   todayEarnings: 0,
   weeklyEarnings: 0,
   monthlyEarnings: 0,
+  tipsReceived: 0,
+  incentives: 0,
+  pendingPayments: 0,
   dailyTarget: 1000,
 };
 

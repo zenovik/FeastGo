@@ -397,11 +397,17 @@ export async function getMyEarnings(req, res, next) {
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
-    const [totalAgg, todayAgg, weeklyAgg, monthlyAgg] = await Promise.all([
-      DeliveryEarning.aggregate([{ $match: { partner: req.user._id } }, { $group: { _id: null, total: { $sum: '$total' }, count: { $sum: 1 } } }]),
+    const [totalAgg, todayAgg, weeklyAgg, monthlyAgg, pendingAgg] = await Promise.all([
+      DeliveryEarning.aggregate([
+        { $match: { partner: req.user._id } },
+        { $group: { _id: null, total: { $sum: '$total' }, count: { $sum: 1 }, tips: { $sum: '$tip' }, bonus: { $sum: '$bonus' } } },
+      ]),
       DeliveryEarning.aggregate([{ $match: { partner: req.user._id, createdAt: { $gte: todayStart } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
       DeliveryEarning.aggregate([{ $match: { partner: req.user._id, createdAt: { $gte: weekStart } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
       DeliveryEarning.aggregate([{ $match: { partner: req.user._id, createdAt: { $gte: monthStart } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
+      // No payout/settlement run exists yet (see DeliveryEarning.paid) — this
+      // is every earning still awaiting FeastGo's next payout cycle.
+      DeliveryEarning.aggregate([{ $match: { partner: req.user._id, paid: false } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
     ]);
 
     res.json({
@@ -410,8 +416,31 @@ export async function getMyEarnings(req, res, next) {
       todayEarnings: todayAgg[0]?.total ?? 0,
       weeklyEarnings: weeklyAgg[0]?.total ?? 0,
       monthlyEarnings: monthlyAgg[0]?.total ?? 0,
+      tipsReceived: totalAgg[0]?.tips ?? 0,
+      incentives: totalAgg[0]?.bonus ?? 0,
+      pendingPayments: pendingAgg[0]?.total ?? 0,
       dailyTarget: req.user.dailyTarget,
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listMyEarningsHistory(req, res, next) {
+  try {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+
+    const [rows, total] = await Promise.all([
+      DeliveryEarning.find({ partner: req.user._id })
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate('order', 'restaurantName total'),
+      DeliveryEarning.countDocuments({ partner: req.user._id }),
+    ]);
+
+    res.json({ earnings: rows, total, page, limit });
   } catch (err) {
     next(err);
   }
@@ -433,12 +462,22 @@ export async function getDashboardStats(req, res, next) {
     const activeStatuses = ['assigned', 'accepted', 'reached_restaurant', 'picked_up', 'out_for_delivery', 'reached_customer'];
     const activeDeliveries = activeStatuses.reduce((sum, s) => sum + (countByStatus[s] ?? 0), 0);
 
+    const completedDeliveries = countByStatus.delivered ?? 0;
+    const cancelledOnly = countByStatus.cancelled ?? 0;
+    const failedDeliveries = countByStatus.failed ?? 0;
+    const finishedDeliveries = completedDeliveries + cancelledOnly + failedDeliveries;
+    const successRate = finishedDeliveries > 0 ? Math.round((completedDeliveries / finishedDeliveries) * 1000) / 10 : 0;
+
     res.json({
       todayDeliveries,
       pendingPickups: (countByStatus.assigned ?? 0) + (countByStatus.accepted ?? 0) + (countByStatus.reached_restaurant ?? 0),
       activeDeliveries,
-      completedDeliveries: countByStatus.delivered ?? 0,
-      cancelledDeliveries: (countByStatus.cancelled ?? 0) + (countByStatus.failed ?? 0),
+      completedDeliveries,
+      // Kept as the combined cancelled+failed count for backward compatibility
+      // with the existing dashboard card — failedDeliveries below breaks it out.
+      cancelledDeliveries: cancelledOnly + failedDeliveries,
+      failedDeliveries,
+      successRate,
       rating: req.user.rating,
       recentDeliveries,
     });

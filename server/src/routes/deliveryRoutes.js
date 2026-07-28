@@ -17,9 +17,16 @@ router.get('/auth/me', requireRole('delivery', { allowSuspended: true }), delive
 router.patch('/auth/online', requireRole('delivery'), deliveryAuth.setOnlineStatus);
 router.patch('/auth/profile', requireRole('delivery'), deliveryAuth.updateProfile);
 router.patch('/auth/documents', requireRole('delivery'), deliveryAuth.updateDocuments);
+router.delete('/auth/documents/:field', requireRole('delivery'), deliveryAuth.deleteDocument);
 router.post('/auth/change-password', requireRole('delivery'), deliveryAuth.changePassword);
 router.post('/auth/forgot-password/request', deliveryAuth.requestPasswordReset);
 router.post('/auth/forgot-password/reset', deliveryAuth.resetPassword);
+router.post('/auth/change-phone/request', requireRole('delivery'), deliveryAuth.requestPhoneChangeOtp);
+router.post('/auth/change-phone/verify', requireRole('delivery'), deliveryAuth.verifyPhoneChangeOtp);
+router.post('/auth/change-email/request', requireRole('delivery'), deliveryAuth.requestEmailChangeOtp);
+router.post('/auth/change-email/verify', requireRole('delivery'), deliveryAuth.verifyEmailChangeOtp);
+router.post('/auth/logout-all-devices', requireRole('delivery'), deliveryAuth.logoutAllDevices);
+router.post('/auth/support-request', requireRole('delivery'), deliveryAuth.submitSupportRequest);
 
 // Orders
 router.get('/orders/available', requireRole('delivery'), delivery.listAvailableOrders);
@@ -36,6 +43,7 @@ router.patch('/location', requireRole('delivery'), delivery.updateLocation);
 
 // Earnings + dashboard
 router.get('/earnings', requireRole('delivery'), delivery.getMyEarnings);
+router.get('/earnings/history', requireRole('delivery'), delivery.listMyEarningsHistory);
 router.get('/dashboard/stats', requireRole('delivery'), delivery.getDashboardStats);
 
 // Notifications

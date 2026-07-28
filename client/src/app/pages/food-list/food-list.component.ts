@@ -8,16 +8,54 @@ import { foodImage } from '../../core/utils/food-image.util';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { FoodCardComponent } from '../../shared/components/food-card/food-card.component';
 
+type FilterChipKey =
+  | 'veg'
+  | 'nonVeg'
+  | 'bestseller'
+  | 'spicy'
+  | 'healthy'
+  | 'fastDelivery'
+  | 'under199'
+  | 'offers'
+  | 'topRated'
+  | 'newArrival'
+  | 'featured'
+  | 'freeDelivery'
+  | 'bogo';
+
 interface FilterChip {
-  key: 'veg' | 'nonVeg' | 'bestseller' | 'spicy' | 'healthy' | 'fastDelivery' | 'under199' | 'offers' | 'topRated';
+  key: FilterChipKey;
   label: string;
   icon?: string;
 }
 
+// Every boolean filter key the food-items API understands — read straight off
+// the URL on load so an Explore More card's pre-applied filters (e.g.
+// ?topRated=true) land in the same activeFilters set toggling a chip would
+// produce, instead of needing separate "came from a link" handling.
+const FILTER_KEYS: FilterChipKey[] = [
+  'veg',
+  'nonVeg',
+  'bestseller',
+  'spicy',
+  'healthy',
+  'fastDelivery',
+  'under199',
+  'offers',
+  'topRated',
+  'newArrival',
+  'featured',
+  'freeDelivery',
+  'bogo',
+];
+
 interface CategoryTile {
   name: string;
   image: string;
+  isAll?: boolean;
 }
+
+const ALL_CATEGORY_TILE: CategoryTile = { name: 'All', image: foodImage('🍽️', '#ff5127', '#7f2010'), isAll: true };
 
 // Cycled through for admin-created categories that don't have an uploaded
 // image, so the strip still looks intentional instead of showing a blank tile.
@@ -46,6 +84,10 @@ const FILTER_CHIPS: FilterChip[] = [
   { key: 'under199', label: 'Under ₹199' },
   { key: 'offers', label: 'Offers', icon: 'percent' },
   { key: 'topRated', label: 'Top Rated', icon: 'star' },
+  { key: 'newArrival', label: 'New', icon: 'bolt' },
+  { key: 'featured', label: 'Premium', icon: 'shield-check' },
+  { key: 'freeDelivery', label: 'Free Delivery', icon: 'truck' },
+  { key: 'bogo', label: 'Buy 1 Get 1', icon: 'percent' },
 ];
 
 const SORT_OPTIONS: { value: FoodSort; label: string }[] = [
@@ -76,15 +118,15 @@ const PRICE_RANGES: { value: FoodPriceRange | ''; label: string }[] = [
             <button
               type="button"
               class="flex w-20 shrink-0 flex-col items-center gap-2 text-center"
-              (click)="selectCategory(c.name)"
+              (click)="selectTile(c)"
             >
               <span
                 class="h-16 w-16 overflow-hidden rounded-full transition"
-                [class]="query() === c.name ? 'ring-3 ring-ember-500 ring-offset-2' : 'ring-1 ring-ink-100'"
+                [class]="isTileActive(c) ? 'ring-3 ring-ember-500 ring-offset-2' : 'ring-1 ring-ink-100'"
               >
                 <img [src]="c.image" alt="" class="h-full w-full object-cover" loading="lazy" />
               </span>
-              <span class="text-xs font-semibold" [class]="query() === c.name ? 'text-ember-600' : 'text-ink-700'">
+              <span class="text-xs font-semibold" [class]="isTileActive(c) ? 'text-ember-600' : 'text-ink-700'">
                 {{ c.name }}
               </span>
             </button>
@@ -188,11 +230,12 @@ export class FoodListComponent implements OnInit {
   sortOptions = SORT_OPTIONS;
   priceRanges = PRICE_RANGES;
 
-  categoryTiles = signal<CategoryTile[]>([]);
+  categoryTiles = signal<CategoryTile[]>([ALL_CATEGORY_TILE]);
   query = signal<string | null>(null);
   sort = signal<FoodSort>('popular');
   priceRange = signal<FoodPriceRange | ''>('');
-  activeFilters = signal<Set<FilterChip['key']>>(new Set());
+  activeFilters = signal<Set<FilterChipKey>>(new Set());
+  minRating = signal<number | undefined>(undefined);
 
   loading = signal(true);
   loadingMore = signal(false);
@@ -214,6 +257,25 @@ export class FoodListComponent implements OnInit {
     this.loadCategories();
     this.route.queryParamMap.subscribe(async (params) => {
       this.query.set(params.get('q'));
+
+      // Lets an Explore More card (or any other link) land here with its
+      // filter combination already applied — same activeFilters shape a
+      // manual chip click would produce.
+      const filters = new Set<FilterChipKey>();
+      for (const key of FILTER_KEYS) {
+        if (params.get(key) === 'true') filters.add(key);
+      }
+      this.activeFilters.set(filters);
+
+      const price = params.get('priceRange');
+      this.priceRange.set(price === 'under199' || price === '199-399' || price === '399plus' ? price : '');
+
+      const sortParam = params.get('sort') as FoodSort | null;
+      if (sortParam) this.sort.set(sortParam);
+
+      const minRatingParam = params.get('minRating');
+      this.minRating.set(minRatingParam ? Number(minRatingParam) : undefined);
+
       await this.fetch();
       if (this.initialLoad) {
         this.initialLoad = false;
@@ -225,18 +287,31 @@ export class FoodListComponent implements OnInit {
   private async loadCategories() {
     try {
       const { categories } = await this.categoryService.list();
-      this.categoryTiles.set(
-        categories.map((c, i) => {
+      this.categoryTiles.set([
+        ALL_CATEGORY_TILE,
+        ...categories.map((c, i) => {
           const fallback = CATEGORY_FALLBACKS[i % CATEGORY_FALLBACKS.length];
           return { name: c.name, image: c.image || foodImage(fallback.emoji, fallback.gradient[0], fallback.gradient[1]) };
-        })
-      );
+        }),
+      ]);
     } catch {
-      // Category strip is a non-critical enhancement — leave it empty on failure.
+      // Category strip is a non-critical enhancement — keep just "All" on failure.
     }
   }
 
-  selectCategory(name: string) {
+  isTileActive(tile: CategoryTile): boolean {
+    return tile.isAll ? !this.query() : this.query() === tile.name;
+  }
+
+  selectTile(tile: CategoryTile) {
+    if (tile.isAll) {
+      this.clearSearch();
+      return;
+    }
+    this.selectCategory(tile.name);
+  }
+
+  private selectCategory(name: string) {
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { q: this.query() === name ? null : name },
@@ -285,6 +360,7 @@ export class FoodListComponent implements OnInit {
       q: this.query() ?? undefined,
       sort: this.sort(),
       priceRange: this.priceRange() || undefined,
+      minRating: this.minRating(),
       veg: filters.has('veg'),
       nonVeg: filters.has('nonVeg'),
       bestseller: filters.has('bestseller'),
@@ -294,6 +370,10 @@ export class FoodListComponent implements OnInit {
       under199: filters.has('under199'),
       offers: filters.has('offers'),
       topRated: filters.has('topRated'),
+      newArrival: filters.has('newArrival'),
+      featured: filters.has('featured'),
+      freeDelivery: filters.has('freeDelivery'),
+      bogo: filters.has('bogo'),
     };
   }
 

@@ -72,6 +72,10 @@ export async function broadcastNotification(req, res, next) {
           effectiveFilter = { ...filter, 'notificationPrefs.promotional': { $ne: false } };
         } else if (role === 'customer' && category === 'festival') {
           effectiveFilter = { ...filter, 'notificationPrefs.offers': { $ne: false } };
+        } else if (role === 'delivery' && (category === 'promotional' || category === 'festival')) {
+          // Delivery partners only have a single "promotional" toggle (no
+          // separate offers pref), so it covers both broadcast categories.
+          effectiveFilter = { ...filter, 'notificationPrefs.promotional': { $ne: false } };
         }
         const accounts = await Model.find(effectiveFilter).select('_id');
         recipients.push(...accounts.map((a) => ({ role, id: a._id })));

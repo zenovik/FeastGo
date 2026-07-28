@@ -18,6 +18,7 @@ export interface DeliveryDocuments {
   aadhaar: string;
   pan: string;
   rc: string;
+  insurance: string;
 }
 
 export interface DeliveryBankDetails {
@@ -32,14 +33,28 @@ export interface DeliveryEmergencyContact {
   phone: string;
 }
 
+export interface DeliveryNotificationPrefs {
+  newDeliveryRequest: boolean;
+  orderUpdates: boolean;
+  earnings: boolean;
+  promotional: boolean;
+  email: boolean;
+  push: boolean;
+}
+
 export interface DeliveryAccount {
   id: string;
   name: string;
   email: string;
   phone: string;
   photo: string;
+  dob: string | null;
+  gender: 'male' | 'female' | 'other' | 'prefer_not_to_say' | null;
   vehicleType: 'bike' | 'scooter' | 'bicycle' | 'car';
   vehicleNumber: string;
+  licenseNumber: string;
+  aadhaarNumber: string;
+  panNumber: string;
   documents: DeliveryDocuments;
   documentsSubmitted: boolean;
   bankDetails: DeliveryBankDetails;
@@ -52,9 +67,18 @@ export interface DeliveryAccount {
   orderRejectionCount: number;
   flaggedForReview: boolean;
   rating: { average: number; count: number };
+  dailyTarget: number;
   currentOrder: string | null;
   location: { lat: number | null; lng: number | null };
   lastLocationAt: string | null;
+  notificationPrefs: DeliveryNotificationPrefs;
+  theme: 'light' | 'dark' | 'system';
+  language: string;
+  autoAcceptOrders: boolean;
+  acceptRadiusKm: number;
+  defaultMapsApp: 'google' | 'apple' | 'waze';
+  voiceNavigation: boolean;
+  routePreference: 'fastest' | 'shortest' | 'avoid_tolls';
   role: 'delivery';
   createdAt: string;
 }

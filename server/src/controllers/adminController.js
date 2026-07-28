@@ -7,6 +7,7 @@ import MenuItem from '../models/MenuItem.js';
 import Order, { ORDER_STATUSES } from '../models/Order.js';
 import Review from '../models/Review.js';
 import Category from '../models/Category.js';
+import ExploreCard from '../models/ExploreCard.js';
 import Coupon from '../models/Coupon.js';
 import Banner from '../models/Banner.js';
 import DeliveryAssignment from '../models/DeliveryAssignment.js';
@@ -812,6 +813,78 @@ export async function deleteCategory(req, res, next) {
     const category = await Category.findByIdAndDelete(req.params.id);
     await logAdminAction(req, 'category.delete', { targetType: 'Category', targetId: req.params.id, details: category?.name });
     res.json({ message: 'Category deleted' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---- Explore cards (customer home page "Explore More" rail) ----
+export async function listExploreCardsAdmin(_req, res, next) {
+  try {
+    const cards = await ExploreCard.find().sort({ sortOrder: 1 });
+    res.json({ cards });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createExploreCard(req, res, next) {
+  try {
+    const { title, subtitle, icon, image, gradientFrom, gradientTo, badge, route, filters } = req.body;
+    if (!title) throw new ApiError(400, 'Card title is required');
+    if (!icon) throw new ApiError(400, 'Card icon is required');
+    const count = await ExploreCard.countDocuments();
+    const card = await ExploreCard.create({
+      title,
+      subtitle,
+      icon,
+      image,
+      gradientFrom,
+      gradientTo,
+      badge,
+      route,
+      filters: filters && typeof filters === 'object' ? filters : {},
+      sortOrder: count,
+    });
+    await logAdminAction(req, 'explore_card.create', { targetType: 'ExploreCard', targetId: card._id, details: title });
+    res.status(201).json({ card });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const EXPLORE_CARD_FIELDS = ['title', 'subtitle', 'icon', 'image', 'gradientFrom', 'gradientTo', 'badge', 'route', 'filters', 'isActive'];
+
+export async function updateExploreCard(req, res, next) {
+  try {
+    const card = await ExploreCard.findById(req.params.id);
+    if (!card) throw new ApiError(404, 'Explore card not found');
+    for (const field of EXPLORE_CARD_FIELDS) {
+      if (req.body[field] !== undefined) card[field] = req.body[field];
+    }
+    await card.save();
+    res.json({ card });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function reorderExploreCards(req, res, next) {
+  try {
+    const { cardIds } = req.body;
+    if (!Array.isArray(cardIds)) throw new ApiError(400, 'cardIds must be an array');
+    await Promise.all(cardIds.map((id, index) => ExploreCard.updateOne({ _id: id }, { $set: { sortOrder: index } })));
+    res.json({ message: 'Explore cards reordered' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteExploreCard(req, res, next) {
+  try {
+    const card = await ExploreCard.findByIdAndDelete(req.params.id);
+    await logAdminAction(req, 'explore_card.delete', { targetType: 'ExploreCard', targetId: req.params.id, details: card?.title });
+    res.json({ message: 'Explore card deleted' });
   } catch (err) {
     next(err);
   }

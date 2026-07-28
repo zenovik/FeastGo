@@ -1,25 +1,98 @@
+import { DecimalPipe, DatePipe } from '@angular/common';
 import { Component, OnInit, QueryList, ViewChild, ViewChildren, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { DeliveryAuthService } from '../../../core/services/delivery-auth.service';
+import { DeliveryDashboardStats, DeliveryEarningsSummary, DeliveryService } from '../../../core/services/delivery.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { DeliveryNavComponent } from '../../../shared/components/delivery-shell/delivery-nav.component';
 import { ImageUploadComponent } from '../../../shared/components/image-upload/image-upload.component';
-import { MobileFieldComponent } from '../../../shared/components/mobile-field/mobile-field.component';
+import { InrPipe } from '../../../shared/pipes/inr.pipe';
 
-type Tab = 'profile' | 'documents' | 'bank' | 'security';
+type Tab = 'profile' | 'documents' | 'bank';
 
-const DOC_LABELS: Record<string, string> = { license: 'Driving license', aadhaar: 'Aadhaar card', pan: 'PAN card', rc: 'Vehicle RC' };
+const DOC_LABELS: Record<string, string> = {
+  license: 'Driving license',
+  aadhaar: 'Aadhaar card',
+  pan: 'PAN card',
+  rc: 'Vehicle RC',
+  insurance: 'Vehicle insurance',
+};
+
+function maskTail(value: string, visible = 4): string {
+  if (!value) return '—';
+  if (value.length <= visible) return value;
+  return `${'•'.repeat(value.length - visible)}${value.slice(-visible)}`;
+}
 
 @Component({
   selector: 'app-delivery-profile',
   standalone: true,
-  imports: [FormsModule, DeliveryNavComponent, MobileFieldComponent, ImageUploadComponent],
+  imports: [FormsModule, RouterLink, DeliveryNavComponent, ImageUploadComponent, InrPipe, DecimalPipe, DatePipe],
   template: `
     <app-delivery-nav />
-    <div class="container-shell max-w-xl py-8">
-      <h1 class="font-display text-2xl font-bold text-ink-900">Your Profile</h1>
+    <div class="container-shell max-w-3xl py-8">
+      <h1 class="font-display text-2xl font-bold text-ink-900 dark:text-white">Your Profile</h1>
 
       @if (auth.currentUser(); as partner) {
+        <!-- Overview -->
+        <div class="card-surface mt-4 p-5">
+          <div class="flex flex-wrap items-center gap-4">
+            @if (partner.photo) {
+              <img [src]="partner.photo" alt="" class="h-16 w-16 rounded-full object-cover" />
+            } @else {
+              <div class="flex h-16 w-16 items-center justify-center rounded-full bg-ember-100 text-lg font-bold text-ember-600 dark:bg-ember-500/10">
+                {{ partner.name?.charAt(0) || '?' }}
+              </div>
+            }
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-display text-lg font-bold text-ink-900 dark:text-white">{{ partner.name }}</p>
+              <p class="text-xs text-ink-400 dark:text-ink-500">Partner ID {{ partner.id.slice(-8).toUpperCase() }} · Joined {{ partner.createdAt | date: 'MMM d, y' }}</p>
+              <div class="mt-1.5 flex flex-wrap gap-1.5">
+                <span class="rounded-full px-2 py-0.5 text-[11px] font-bold" [class.bg-basil-100]="partner.isOnline" [class.text-basil-700]="partner.isOnline" [class.bg-ink-100]="!partner.isOnline" [class.text-ink-500]="!partner.isOnline" [class.dark:bg-ink-700]="!partner.isOnline" [class.dark:text-ink-300]="!partner.isOnline">
+                  {{ partner.isOnline ? 'Online' : 'Offline' }}
+                </span>
+                <span class="rounded-full px-2 py-0.5 text-[11px] font-bold capitalize" [class.bg-basil-100]="partner.status === 'approved'" [class.text-basil-700]="partner.status === 'approved'" [class.bg-gold-100]="partner.status === 'pending'" [class.text-gold-700]="partner.status === 'pending'" [class.bg-ember-100]="partner.status === 'rejected'" [class.text-ember-700]="partner.status === 'rejected'">
+                  {{ partner.status }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-3 border-t border-ink-100 pt-4 dark:border-ink-700 sm:grid-cols-4">
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-wide text-ink-400">Rating</p>
+              <p class="font-display text-lg font-bold text-ink-900 dark:text-white">{{ partner.rating.average | number: '1.1-1' }} ★</p>
+            </div>
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-wide text-ink-400">Deliveries</p>
+              <p class="font-display text-lg font-bold text-ink-900 dark:text-white">{{ stats().completedDeliveries }}</p>
+            </div>
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-wide text-ink-400">Total earnings</p>
+              <p class="font-display text-lg font-bold text-ink-900 dark:text-white">{{ earnings().totalEarnings | inr }}</p>
+            </div>
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-wide text-ink-400">Success rate</p>
+              <p class="font-display text-lg font-bold text-ink-900 dark:text-white">{{ stats().successRate }}%</p>
+            </div>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-ink-100 pt-4 text-sm dark:border-ink-700 sm:grid-cols-3">
+            <p><span class="text-ink-400">Mobile</span><br /><span class="font-semibold text-ink-800 dark:text-ink-100">{{ partner.phone }}</span></p>
+            <p><span class="text-ink-400">Email</span><br /><span class="font-semibold text-ink-800 dark:text-ink-100">{{ partner.email }}</span></p>
+            <p><span class="text-ink-400">Vehicle</span><br /><span class="font-semibold capitalize text-ink-800 dark:text-ink-100">{{ partner.vehicleType }} · {{ partner.vehicleNumber || '—' }}</span></p>
+            <p><span class="text-ink-400">Aadhaar</span><br /><span class="font-semibold text-ink-800 dark:text-ink-100">{{ maskTail(partner.aadhaarNumber) }}</span></p>
+            <p><span class="text-ink-400">PAN</span><br /><span class="font-semibold text-ink-800 dark:text-ink-100">{{ maskTail(partner.panNumber) }}</span></p>
+            <p><span class="text-ink-400">License no.</span><br /><span class="font-semibold text-ink-800 dark:text-ink-100">{{ partner.licenseNumber || '—' }}</span></p>
+          </div>
+
+          <p class="mt-3 text-xs text-ink-400 dark:text-ink-500">
+            To change your mobile number, email, or password, go to
+            <a routerLink="/delivery/settings/security" class="font-semibold text-ember-600">Settings → Security</a>.
+          </p>
+        </div>
+
         <div class="mt-4 flex gap-1.5">
           @for (t of tabs; track t.id) {
             <button
@@ -28,8 +101,11 @@ const DOC_LABELS: Record<string, string> = { license: 'Driving license', aadhaar
               [class.border-ember-500]="tab() === t.id"
               [class.text-ember-600]="tab() === t.id"
               [class.bg-ember-50]="tab() === t.id"
+              [class.dark:bg-ember-500/10]="tab() === t.id"
               [class.border-ink-200]="tab() !== t.id"
+              [class.dark:border-ink-700]="tab() !== t.id"
               [class.text-ink-500]="tab() !== t.id"
+              [class.dark:text-ink-400]="tab() !== t.id"
               (click)="tab.set(t.id)"
             >
               {{ t.label }}
@@ -44,7 +120,7 @@ const DOC_LABELS: Record<string, string> = { license: 'Driving license', aadhaar
               shape="circle"
               size="sm"
               [maxBytes]="2000000"
-              [value]="auth.currentUser()?.photo || null"
+              [value]="partner.photo || null"
               [uploading]="saving()"
               [progress]="photoProgress()"
               (picked)="onPhotoPicked($event)"
@@ -52,36 +128,52 @@ const DOC_LABELS: Record<string, string> = { license: 'Driving license', aadhaar
               label=""
             />
 
-            <label class="block text-xs font-semibold text-ink-500">Full name
-              <input [(ngModel)]="form.name" name="name" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
+            <label class="block text-xs font-semibold text-ink-500 dark:text-ink-400">Full name
+              <input [(ngModel)]="form.name" name="name" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
             </label>
-            <p class="text-xs font-semibold text-ink-500">Email <span class="ml-1 font-normal text-ink-400">{{ partner.email }} (cannot be changed)</span></p>
-            <label class="block text-xs font-semibold text-ink-500">Mobile number
-              <div class="mt-1">
-                <app-mobile-field [value]="form.phone" (valueChange)="form.phone = $event" (validityChange)="phoneValid.set($event)" placeholder="Mobile number" />
-              </div>
-            </label>
+
             <div class="grid grid-cols-2 gap-2">
-              <label class="block text-xs font-semibold text-ink-500">Vehicle type
-                <select [(ngModel)]="form.vehicleType" name="vehicleType" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none">
+              <label class="block text-xs font-semibold text-ink-500 dark:text-ink-400">Date of birth
+                <input type="date" [(ngModel)]="form.dob" name="dob" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+              </label>
+              <label class="block text-xs font-semibold text-ink-500 dark:text-ink-400">Gender
+                <select [(ngModel)]="form.gender" name="gender" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none dark:border-ink-700 dark:bg-ink-900 dark:text-white">
+                  <option value="">Prefer not to say</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <label class="block text-xs font-semibold text-ink-500 dark:text-ink-400">Vehicle type
+                <select [(ngModel)]="form.vehicleType" name="vehicleType" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none dark:border-ink-700 dark:bg-ink-900 dark:text-white">
                   <option value="bike">Motorbike</option>
                   <option value="scooter">Scooter</option>
                   <option value="bicycle">Bicycle</option>
                   <option value="car">Car</option>
                 </select>
               </label>
-              <label class="block text-xs font-semibold text-ink-500">Vehicle number
-                <input [(ngModel)]="form.vehicleNumber" name="vehicleNumber" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
+              <label class="block text-xs font-semibold text-ink-500 dark:text-ink-400">Vehicle number
+                <input [(ngModel)]="form.vehicleNumber" name="vehicleNumber" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
               </label>
             </div>
 
+            <p class="text-xs font-bold uppercase tracking-wide text-ink-400">Identity numbers</p>
+            <div class="grid grid-cols-2 gap-2">
+              <input [(ngModel)]="form.licenseNumber" name="licenseNumber" placeholder="License number" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+              <input [(ngModel)]="form.aadhaarNumber" name="aadhaarNumber" maxlength="12" inputmode="numeric" placeholder="Aadhaar number" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+            </div>
+            <input [(ngModel)]="form.panNumber" name="panNumber" maxlength="10" placeholder="PAN number" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm uppercase outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+
             <p class="text-xs font-bold uppercase tracking-wide text-ink-400">Emergency contact</p>
             <div class="grid grid-cols-2 gap-2">
-              <input [(ngModel)]="form.emergencyContact.name" name="emName" placeholder="Contact name" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-              <app-mobile-field [value]="form.emergencyContact.phone" (valueChange)="form.emergencyContact.phone = $event" placeholder="Contact phone" />
+              <input [(ngModel)]="form.emergencyContact.name" name="emName" placeholder="Contact name" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+              <input [(ngModel)]="form.emergencyContact.phone" name="emPhone" placeholder="Contact phone" class="rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
             </div>
 
-            <button type="button" [disabled]="saving() || !phoneValid()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" (click)="saveProfile()">
+            <button type="button" [disabled]="saving()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900" (click)="saveProfile()">
               {{ saving() ? 'Saving…' : 'Save changes' }}
             </button>
           </div>
@@ -89,25 +181,31 @@ const DOC_LABELS: Record<string, string> = { license: 'Driving license', aadhaar
 
         @if (tab() === 'documents') {
           <div class="card-surface mt-4 space-y-3 p-5">
-            <p class="text-xs text-ink-400">Upload clear photos of your documents for admin verification.</p>
-            @for (key of docKeys; track key; let i = $index) {
-              <div class="flex items-center gap-3 rounded-lg border border-dashed border-ink-200 p-3">
+            <p class="text-xs text-ink-400 dark:text-ink-500">Upload clear photos or PDFs of your documents for admin verification — JPG, PNG, or PDF, up to 5MB.</p>
+            @for (key of docKeys; track key) {
+              <div class="flex items-center gap-3 rounded-lg border border-dashed border-ink-200 p-3 dark:border-ink-700">
                 <app-image-upload
                   #docUpload
                   shape="square"
                   size="sm"
-                  [maxBytes]="3000000"
-                  [value]="auth.currentUser()?.documents?.[key] || null"
+                  [maxBytes]="5000000"
+                  [allowPdf]="true"
+                  [value]="partner.documents?.[key] || null"
                   [uploading]="saving()"
                   [progress]="docsProgress()"
                   (picked)="onDocPicked($event, key)"
                   (invalidFile)="toast.error($event)"
                   label=""
                 />
-                <span class="text-sm font-semibold text-ink-700">{{ docLabel(key) }}</span>
+                <div class="min-w-0 flex-1">
+                  <span class="block text-sm font-semibold text-ink-700 dark:text-ink-200">{{ docLabel(key) }}</span>
+                  @if (partner.documents?.[key]) {
+                    <button type="button" class="text-xs font-semibold text-ember-600" (click)="removeDocument(key)">Remove</button>
+                  }
+                </div>
               </div>
             }
-            <button type="button" [disabled]="saving()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" (click)="saveDocuments()">
+            <button type="button" [disabled]="saving()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900" (click)="saveDocuments()">
               {{ saving() ? 'Saving…' : 'Save documents' }}
             </button>
           </div>
@@ -115,23 +213,12 @@ const DOC_LABELS: Record<string, string> = { license: 'Driving license', aadhaar
 
         @if (tab() === 'bank') {
           <div class="card-surface mt-4 space-y-3 p-5">
-            <input [(ngModel)]="form.bankDetails.accountHolder" name="accountHolder" placeholder="Account holder name" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-            <input [(ngModel)]="form.bankDetails.accountNumber" name="accountNumber" placeholder="Account number" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-            <input [(ngModel)]="form.bankDetails.ifsc" name="ifsc" placeholder="IFSC code" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-            <input [(ngModel)]="form.bankDetails.upiId" name="upiId" placeholder="UPI ID" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-            <button type="button" [disabled]="saving()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" (click)="saveProfile()">
+            <input [(ngModel)]="form.bankDetails.accountHolder" name="accountHolder" placeholder="Account holder name" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+            <input [(ngModel)]="form.bankDetails.accountNumber" name="accountNumber" placeholder="Account number" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+            <input [(ngModel)]="form.bankDetails.ifsc" name="ifsc" placeholder="IFSC code" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm uppercase outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+            <input [(ngModel)]="form.bankDetails.upiId" name="upiId" placeholder="UPI ID" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400 dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+            <button type="button" [disabled]="saving()" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-ink-900" (click)="saveProfile()">
               {{ saving() ? 'Saving…' : 'Save bank details' }}
-            </button>
-          </div>
-        }
-
-        @if (tab() === 'security') {
-          <div class="card-surface mt-4 space-y-3 p-5">
-            <p class="text-xs font-bold uppercase tracking-wide text-ink-400">Change password</p>
-            <input type="password" [(ngModel)]="currentPassword" name="currentPassword" placeholder="Current password" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-            <input type="password" [(ngModel)]="newPassword" name="newPassword" placeholder="New password (min 6 characters)" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none focus:border-ember-400" />
-            <button type="button" [disabled]="saving() || !currentPassword || newPassword.length < 6" class="rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" (click)="changePassword()">
-              {{ saving() ? 'Updating…' : 'Update password' }}
             </button>
           </div>
         }
@@ -145,49 +232,84 @@ export class DeliveryProfileComponent implements OnInit {
     { id: 'profile', label: 'Profile' },
     { id: 'documents', label: 'Documents' },
     { id: 'bank', label: 'Bank & UPI' },
-    { id: 'security', label: 'Security' },
   ];
-  docKeys = ['license', 'aadhaar', 'pan', 'rc'] as const;
+  docKeys = ['license', 'aadhaar', 'pan', 'rc', 'insurance'] as const;
 
   form = {
     name: '',
-    phone: '',
     photo: '',
+    dob: '' as string | null,
+    gender: '' as string,
     vehicleType: 'bike',
     vehicleNumber: '',
+    licenseNumber: '',
+    aadhaarNumber: '',
+    panNumber: '',
     bankDetails: { accountHolder: '', accountNumber: '', ifsc: '', upiId: '' },
     emergencyContact: { name: '', phone: '' },
   };
-  docForm: Record<string, string> = { license: '', aadhaar: '', pan: '', rc: '' };
+  docForm: Record<string, string> = { license: '', aadhaar: '', pan: '', rc: '', insurance: '' };
 
-  currentPassword = '';
-  newPassword = '';
   saving = signal(false);
-  phoneValid = signal(true);
   photoProgress = signal<number | null>(null);
   docsProgress = signal<number | null>(null);
+
+  stats = signal<DeliveryDashboardStats>({
+    todayDeliveries: 0,
+    pendingPickups: 0,
+    activeDeliveries: 0,
+    completedDeliveries: 0,
+    cancelledDeliveries: 0,
+    failedDeliveries: 0,
+    successRate: 0,
+    rating: { average: 0, count: 0 },
+    recentDeliveries: [],
+  });
+  earnings = signal<DeliveryEarningsSummary>({
+    orderCount: 0,
+    totalEarnings: 0,
+    todayEarnings: 0,
+    weeklyEarnings: 0,
+    monthlyEarnings: 0,
+    tipsReceived: 0,
+    incentives: 0,
+    pendingPayments: 0,
+    dailyTarget: 1000,
+  });
 
   @ViewChild('photoUpload') photoUpload?: ImageUploadComponent;
   @ViewChildren('docUpload') docUploads!: QueryList<ImageUploadComponent>;
 
+  maskTail = maskTail;
+
   constructor(
     public auth: DeliveryAuthService,
+    private deliveryService: DeliveryService,
     public toast: ToastService
   ) {}
 
-  ngOnInit() {
+  async ngOnInit() {
     const partner = this.auth.currentUser();
-    if (!partner) return;
-    this.form = {
-      name: partner.name,
-      phone: partner.phone,
-      photo: partner.photo,
-      vehicleType: partner.vehicleType,
-      vehicleNumber: partner.vehicleNumber,
-      bankDetails: { ...partner.bankDetails },
-      emergencyContact: { ...partner.emergencyContact },
-    };
-    this.docForm = { ...partner.documents };
+    if (partner) {
+      this.form = {
+        name: partner.name,
+        photo: partner.photo,
+        dob: partner.dob ? partner.dob.slice(0, 10) : '',
+        gender: partner.gender ?? '',
+        vehicleType: partner.vehicleType,
+        vehicleNumber: partner.vehicleNumber,
+        licenseNumber: partner.licenseNumber,
+        aadhaarNumber: partner.aadhaarNumber,
+        panNumber: partner.panNumber,
+        bankDetails: { ...partner.bankDetails },
+        emergencyContact: { ...partner.emergencyContact },
+      };
+      this.docForm = { ...partner.documents };
+    }
+
+    const [stats, earnings] = await Promise.all([this.deliveryService.getDashboardStats(), this.deliveryService.getEarnings()]);
+    this.stats.set(stats);
+    this.earnings.set(earnings);
   }
 
   docLabel(key: string): string {
@@ -206,7 +328,22 @@ export class DeliveryProfileComponent implements OnInit {
     this.saving.set(true);
     this.photoProgress.set(0);
     try {
-      await this.auth.updateProfile(this.form as any, (pct) => this.photoProgress.set(pct));
+      await this.auth.updateProfile(
+        {
+          name: this.form.name,
+          photo: this.form.photo,
+          dob: this.form.dob || null,
+          gender: (this.form.gender || null) as any,
+          vehicleType: this.form.vehicleType as any,
+          vehicleNumber: this.form.vehicleNumber,
+          licenseNumber: this.form.licenseNumber,
+          aadhaarNumber: this.form.aadhaarNumber,
+          panNumber: this.form.panNumber,
+          bankDetails: this.form.bankDetails,
+          emergencyContact: this.form.emergencyContact,
+        } as any,
+        (pct) => this.photoProgress.set(pct)
+      );
       this.toast.success('Profile updated');
     } catch (err: any) {
       this.photoUpload?.discardPending();
@@ -232,17 +369,13 @@ export class DeliveryProfileComponent implements OnInit {
     }
   }
 
-  async changePassword() {
-    this.saving.set(true);
+  async removeDocument(field: string) {
     try {
-      await this.auth.changePassword(this.currentPassword, this.newPassword);
-      this.toast.success('Password updated');
-      this.currentPassword = '';
-      this.newPassword = '';
+      await this.auth.deleteDocument(field as any);
+      this.docForm[field] = '';
+      this.toast.success('Document removed');
     } catch (err: any) {
-      this.toast.error(err?.error?.message ?? 'Could not update password');
-    } finally {
-      this.saving.set(false);
+      this.toast.error(err?.error?.message ?? 'Could not remove document');
     }
   }
 }

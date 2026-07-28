@@ -85,6 +85,12 @@ router.patch('/categories/reorder', adminOnly, admin.reorderCategories);
 router.patch('/categories/:id', adminOnly, admin.updateCategory);
 router.delete('/categories/:id', adminOnly, admin.deleteCategory);
 
+router.get('/explore-cards', adminOnly, admin.listExploreCardsAdmin);
+router.post('/explore-cards', adminOnly, admin.createExploreCard);
+router.patch('/explore-cards/reorder', adminOnly, admin.reorderExploreCards);
+router.patch('/explore-cards/:id', adminOnly, admin.updateExploreCard);
+router.delete('/explore-cards/:id', adminOnly, admin.deleteExploreCard);
+
 // Coupons
 router.get('/coupons', adminOnly, admin.listCouponsAdmin);
 router.post('/coupons', adminOnly, admin.createCoupon);

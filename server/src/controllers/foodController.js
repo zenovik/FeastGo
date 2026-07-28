@@ -52,6 +52,9 @@ export async function listFoodItems(req, res, next) {
       newArrival,
       minRating,
       priceRange,
+      featured,
+      freeDelivery,
+      bogo,
       sort,
       limit,
       page,
@@ -108,7 +111,26 @@ export async function listFoodItems(req, res, next) {
     else if (priceRange === '399plus') match.price = { $gt: 399 };
 
     if (newArrival === 'true') match.createdAt = { $gte: new Date(Date.now() - NEW_ARRIVAL_WINDOW_MS) };
-    if (fastDelivery === 'true') match['restaurant.deliveryTimeMin'] = { $lte: 20 };
+    if (fastDelivery === 'true') match['restaurant.deliveryTimeMin'] = { $lte: 30 };
+    if (featured === 'true') match.$and = [...(match.$and ?? []), { $or: [{ 'restaurant.isFeatured': true }, { 'restaurant.isPromoted': true }] }];
+    if (freeDelivery === 'true') match['restaurant.deliveryFee'] = 0;
+
+    if (bogo === 'true') {
+      const now = new Date();
+      const bogoCoupons = await Coupon.find({
+        isActive: true,
+        offerType: 'bogo',
+        $and: [
+          { $or: [{ startsAt: null }, { startsAt: { $lte: now } }] },
+          { $or: [{ expiresAt: null }, { expiresAt: { $gte: now } }] },
+        ],
+      }).select('restaurant');
+      const platformWideBogo = bogoCoupons.some((c) => !c.restaurant);
+      if (!platformWideBogo) {
+        const bogoRestaurantIds = bogoCoupons.filter((c) => c.restaurant).map((c) => c.restaurant);
+        match['restaurant._id'] = { $in: bogoRestaurantIds };
+      }
+    }
 
     if (Object.keys(match).length) pipeline.push({ $match: match });
 

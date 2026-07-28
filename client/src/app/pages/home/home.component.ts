@@ -1,6 +1,8 @@
 import { AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { FoodItem, foodItemToMenuItem } from '../../core/models/food-item.model';
+import { ExploreCard } from '../../core/models/explore-card.model';
+import { ExploreCardService } from '../../core/services/explore-card.service';
 import { FoodQuery, FoodService, FoodSort } from '../../core/services/food.service';
 import { ProductModalService } from '../../core/services/product-modal.service';
 import { ScrollRestorationService } from '../../core/services/scroll-restoration.service';
@@ -8,27 +10,6 @@ import { foodCollageBackground } from '../../core/utils/food-image.util';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { FoodCardComponent } from '../../shared/components/food-card/food-card.component';
 import { InrPipe } from '../../shared/pipes/inr.pipe';
-
-type FilterKey = 'nearFast' | 'rating4' | 'pureVeg' | 'under199' | 'offers' | 'bestSeller' | 'newArrivals' | 'healthy';
-
-interface ExploreTile {
-  label: string;
-  icon: string;
-  gradient: [string, string];
-  category?: string;
-  filters?: FilterKey[];
-}
-
-const EXPLORE_TILES: ExploreTile[] = [
-  { label: 'Offers', icon: 'percent', gradient: ['#3B5BDB', '#1E2A5E'], filters: ['offers'] },
-  { label: 'Top Rated', icon: 'star', gradient: ['#4C6EF5', '#22307A'], filters: ['rating4'] },
-  { label: 'Healthy Food', icon: 'leaf', gradient: ['#3B5BDB', '#2A3F8F'], filters: ['healthy'] },
-  { label: 'Budget Meals', icon: 'banknote', gradient: ['#4C6EF5', '#1E2A5E'], filters: ['under199'] },
-  { label: 'Desserts', icon: 'flame', gradient: ['#5C6FE0', '#22307A'], category: 'Desserts' },
-  { label: 'Breakfast', icon: 'compass', gradient: ['#3B5BDB', '#1E2A5E'], category: 'Breakfast' },
-  { label: 'Fast Delivery', icon: 'bike', gradient: ['#4C6EF5', '#2A3F8F'], filters: ['nearFast'] },
-  { label: 'Trending', icon: 'bolt', gradient: ['#3B5BDB', '#22307A'], filters: ['bestSeller'] },
-];
 
 @Component({
   selector: 'app-home',
@@ -56,31 +37,69 @@ const EXPLORE_TILES: ExploreTile[] = [
     </section>
 
     <section class="container-shell py-8">
-      <h2 class="font-display text-xl font-bold text-ink-900">Explore More</h2>
-      <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        @for (tile of exploreTiles; track tile.label) {
-          <button
-            type="button"
-            class="flex flex-col items-start gap-4 rounded-2xl p-5 text-left text-white shadow-[var(--shadow-card)] transition hover:-translate-y-1"
-            [style.background]="'linear-gradient(135deg,' + tile.gradient[0] + ',' + tile.gradient[1] + ')'"
-            (click)="applyExplore(tile)"
-          >
-            <app-icon [name]="tile.icon" [size]="36" />
-            <span class="text-sm font-bold">{{ tile.label }}</span>
-          </button>
+      <div class="flex items-center justify-between">
+        <h2 class="font-display text-xl font-bold text-ink-900">Explore More</h2>
+        @if (!exploreLoading() && !exploreError()) {
+          <p class="text-sm text-ink-400">{{ exploreCards().length }} ways to discover</p>
         }
       </div>
+
+      @if (exploreLoading()) {
+        <div class="mt-4 flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+          @for (i of [1, 2, 3, 4, 5]; track i) {
+            <div class="h-44 w-60 shrink-0 animate-pulse rounded-2xl bg-ink-100 sm:w-64"></div>
+          }
+        </div>
+      } @else if (exploreError()) {
+        <div class="mt-4 flex flex-col items-center gap-2 rounded-2xl border border-dashed border-ink-200 py-10 text-center text-ink-400">
+          <app-icon name="alert-triangle" [size]="28" />
+          <p class="text-sm font-semibold text-ink-600">Couldn't load Explore More right now</p>
+          <button type="button" class="text-sm font-bold text-ember-600" (click)="loadExploreCards()">Try again</button>
+        </div>
+      } @else if (exploreCards().length === 0) {
+        <p class="mt-4 text-sm text-ink-400">Nothing to explore yet — check back soon.</p>
+      } @else {
+        <div class="mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3 scrollbar-none">
+          @for (card of exploreCards(); track card._id) {
+            <button
+              type="button"
+              class="group relative h-44 w-60 shrink-0 snap-start overflow-hidden rounded-2xl text-left text-white shadow-[var(--shadow-card)] transition duration-300 hover:-translate-y-1.5 hover:shadow-[var(--shadow-card-hover)] sm:w-64"
+              (click)="openExplore(card)"
+            >
+              <span
+                class="absolute inset-0"
+                [style.background]="'linear-gradient(135deg,' + card.gradientFrom + ',' + card.gradientTo + ')'"
+              ></span>
+              @if (card.image) {
+                <img [src]="card.image" [alt]="card.title" loading="lazy" class="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                <span class="absolute inset-0 bg-gradient-to-t from-ink-900/85 via-ink-900/25 to-transparent"></span>
+              }
+
+              @if (card.badge) {
+                <span class="absolute right-3 top-3 rounded-full bg-white/25 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white backdrop-blur-md ring-1 ring-white/40">
+                  {{ card.badge }}
+                </span>
+              }
+
+              <span class="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-md ring-1 ring-white/30">
+                <app-icon [name]="card.icon" [size]="20" />
+              </span>
+
+              <span class="absolute inset-x-0 bottom-0 p-4">
+                <span class="block text-base font-bold leading-tight">{{ card.title }}</span>
+                @if (card.subtitle) {
+                  <span class="mt-0.5 block truncate text-xs text-white/80">{{ card.subtitle }}</span>
+                }
+              </span>
+            </button>
+          }
+        </div>
+      }
     </section>
 
     <section id="food-grid" class="container-shell py-8">
       <div class="flex items-center justify-between">
-        <h2 class="font-display text-xl font-bold text-ink-900">
-          @if (selectedCategory()) {
-            {{ selectedCategory() }}
-          } @else {
-            Made for you
-          }
-        </h2>
+        <h2 class="font-display text-xl font-bold text-ink-900">Made for you</h2>
         <p class="text-sm text-ink-400">{{ total() }} dishes</p>
       </div>
 
@@ -183,11 +202,12 @@ const EXPLORE_TILES: ExploreTile[] = [
 export class HomeComponent implements OnInit, AfterViewChecked, OnDestroy {
   @ViewChild('scrollSentinel') scrollSentinel?: ElementRef<HTMLDivElement>;
 
-  exploreTiles = EXPLORE_TILES;
   specialsBackground = foodCollageBackground(['🍕', '🍔', '🍛', '🍜', '🍰', '☕', '🌯', '🍝']);
 
-  selectedCategory = signal<string | null>(null);
-  activeFilters = signal<Set<FilterKey>>(new Set());
+  exploreCards = signal<ExploreCard[]>([]);
+  exploreLoading = signal(true);
+  exploreError = signal(false);
+
   sort = signal<FoodSort>('popular');
 
   loading = signal(true);
@@ -209,11 +229,14 @@ export class HomeComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   constructor(
     private foodService: FoodService,
+    private exploreCardService: ExploreCardService,
     private productModal: ProductModalService,
-    private scrollRestoration: ScrollRestorationService
+    private scrollRestoration: ScrollRestorationService,
+    private router: Router
   ) {}
 
   async ngOnInit() {
+    this.loadExploreCards();
     await this.fetchFeed();
     this.scrollRestoration.restore();
 
@@ -248,11 +271,25 @@ export class HomeComponent implements OnInit, AfterViewChecked, OnDestroy {
     return this.feedItems().slice(0, this.visibleCount());
   }
 
-  applyExplore(tile: ExploreTile) {
-    this.selectedCategory.set(tile.category ?? null);
-    this.activeFilters.set(new Set(tile.filters ?? []));
-    this.fetchFeed();
-    document.getElementById('food-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  async loadExploreCards() {
+    this.exploreLoading.set(true);
+    this.exploreError.set(false);
+    try {
+      const res = await this.exploreCardService.list();
+      this.exploreCards.set(res.cards);
+    } catch {
+      this.exploreError.set(true);
+    } finally {
+      this.exploreLoading.set(false);
+    }
+  }
+
+  // Navigates to the card's listing page with its filter combination applied
+  // as query params — e.g. { topRated: true } becomes ?topRated=true, which
+  // FoodListComponent reads on load and applies the same way a manual chip
+  // click would.
+  openExplore(card: ExploreCard) {
+    this.router.navigate([card.route], { queryParams: card.filters as Record<string, unknown> });
   }
 
   openFoodDetails(item: FoodItem) {
@@ -265,19 +302,7 @@ export class HomeComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   private buildFeedQuery(): FoodQuery {
-    const filters = this.activeFilters();
-    return {
-      q: this.selectedCategory() ?? undefined,
-      sort: this.sort(),
-      healthy: filters.has('healthy'),
-      veg: filters.has('pureVeg'),
-      minRating: filters.has('rating4') ? 4.0 : undefined,
-      under199: filters.has('under199'),
-      offers: filters.has('offers'),
-      bestseller: filters.has('bestSeller'),
-      fastDelivery: filters.has('nearFast'),
-      newArrival: filters.has('newArrivals'),
-    };
+    return { sort: this.sort() };
   }
 
   private async fetchFeed() {

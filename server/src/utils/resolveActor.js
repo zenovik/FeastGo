@@ -28,6 +28,12 @@ export async function resolveActor(token, { allowedRoles = null, allowSuspended 
   const actor = await Model.findById(payload.sub);
   if (!actor) throw new ApiError(401, 'Account no longer exists');
   if (role === 'admin' && actor.role !== 'admin') throw new ApiError(403, 'You do not have access to this resource');
+  // "Logout from all devices" bumps DeliveryPartner.tokenVersion — any token
+  // issued before that bump (payload has no claim, or an older number) is
+  // rejected here. Untouched for every other role, which have no such field.
+  if (role === 'delivery' && typeof actor.tokenVersion === 'number' && (payload.tokenVersion ?? 0) !== actor.tokenVersion) {
+    throw new ApiError(401, 'Your session has ended — please sign in again.');
+  }
   if (!allowSuspended) {
     if ((role === 'seller' || role === 'delivery') && actor.isSuspended) {
       throw new ApiError(403, 'Your account has been suspended by the admin. Contact support for help.');
