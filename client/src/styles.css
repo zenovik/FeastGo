@@ -87,6 +87,13 @@
     @apply mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8;
   }
 
+  /* Same padding scale as .container-shell but no max-width — matches the
+     seller/delivery/admin panels, whose content area just fills whatever
+     space is left next to the sidebar instead of centering in a fixed column. */
+  .container-shell-full {
+    @apply mx-auto w-full px-4 sm:px-6 lg:px-8;
+  }
+
   .scrollbar-none {
     scrollbar-width: none;
     -ms-overflow-style: none;

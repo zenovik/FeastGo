@@ -44,7 +44,7 @@ function maxDobIso(): string {
   standalone: true,
   imports: [FormsModule, IconComponent, MobileFieldComponent, ImageUploadComponent, DatePipe],
   template: `
-    <div [class.container-shell]="!embedded" [class.max-w-xl]="!embedded" [class.py-10]="!embedded">
+    <div [class.container-shell-full]="!embedded" [class.max-w-4xl]="!embedded" [class.py-10]="!embedded">
       @if (!embedded) {
         <h1 class="font-display text-2xl font-bold text-ink-900 dark:text-white">Your profile</h1>
       }

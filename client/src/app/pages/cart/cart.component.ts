@@ -9,7 +9,7 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
   standalone: true,
   imports: [RouterLink, IconComponent, InrPipe],
   template: `
-    <div class="container-shell max-w-2xl py-10">
+    <div class="container-shell-full max-w-4xl py-10">
       <h1 class="font-display text-2xl font-bold text-ink-900">Your cart</h1>
 
       @if (cart.isEmpty()) {

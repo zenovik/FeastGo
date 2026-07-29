@@ -57,7 +57,7 @@ const STEPS: UnifiedStep[] = [
   standalone: true,
   imports: [RouterLink, FormsModule, IconComponent, DatePipe, InrPipe, QrCodeComponent, ChatPanelComponent],
   template: `
-    <div class="container-shell max-w-xl py-10 print:hidden">
+    <div class="container-shell-full max-w-4xl py-10 print:hidden">
       @if (loading()) {
         <div class="h-64 animate-pulse rounded-2xl bg-ink-100"></div>
       } @else if (order(); as o) {

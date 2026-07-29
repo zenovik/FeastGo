@@ -203,7 +203,7 @@ export async function notifySellerAccount(ownerId, type, title, message) {
 }
 
 // `order` must be a hydrated Order document (needs .user).
-export async function notifyCustomer(order, type, title, message) {
+export async function notifyCustomer(order, type, title, message, relatedModule = null) {
   if (!order?.user) return;
   await createNotification({
     recipientId: order.user,
@@ -212,6 +212,7 @@ export async function notifyCustomer(order, type, title, message) {
     title,
     message,
     relatedOrder: order._id,
+    ...(relatedModule ? { relatedModule } : {}),
   });
 }
 
@@ -231,7 +232,7 @@ export async function notifyCustomerOrderStatus(order, status) {
   if (!entry) return;
   const [title, messageFn] = entry;
   const type = status === 'cancelled' || status === 'rejected' ? 'cancelled_order' : 'general';
-  await notifyCustomer(order, type, title, messageFn(order));
+  await notifyCustomer(order, type, title, messageFn(order), 'order');
 }
 
 // ---- Delivery notifications ----

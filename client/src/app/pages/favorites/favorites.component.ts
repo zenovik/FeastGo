@@ -11,7 +11,7 @@ import { FoodCardComponent } from '../../shared/components/food-card/food-card.c
   standalone: true,
   imports: [RouterLink, IconComponent, FoodCardComponent],
   template: `
-    <div class="container-shell py-8">
+    <div class="container-shell-full py-8">
       <h1 class="font-display text-2xl font-bold text-ink-900">Your bookmarks</h1>
       <p class="mt-1 text-sm text-ink-400">
         {{ items().length }} dish{{ items().length === 1 ? '' : 'es' }} saved
@@ -27,7 +27,7 @@ import { FoodCardComponent } from '../../shared/components/food-card/food-card.c
           </a>
         </div>
       } @else {
-        <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           @for (item of items(); track item.id) {
             <app-food-card [item]="item" />
           }

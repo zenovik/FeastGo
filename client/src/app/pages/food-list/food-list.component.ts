@@ -111,7 +111,7 @@ const PRICE_RANGES: { value: FoodPriceRange | ''; label: string }[] = [
   standalone: true,
   imports: [IconComponent, FoodCardComponent],
   template: `
-    <div class="container-shell py-8">
+    <div class="container-shell-full py-8">
       @if (categoryTiles().length) {
         <div class="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
           @for (c of categoryTiles(); track c.name) {
@@ -191,7 +191,7 @@ const PRICE_RANGES: { value: FoodPriceRange | ''; label: string }[] = [
       </div>
 
       @if (loading()) {
-        <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
             <div class="card-surface h-72 animate-pulse bg-ink-100"></div>
           }
@@ -203,7 +203,7 @@ const PRICE_RANGES: { value: FoodPriceRange | ''; label: string }[] = [
           <p class="text-sm">Try a different search term or clear your filters.</p>
         </div>
       } @else {
-        <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           @for (item of items(); track item.id) {
             <app-food-card [item]="item" />
           }

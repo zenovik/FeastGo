@@ -8,7 +8,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
   imports: [RouterLink, IconComponent],
   template: `
     <footer class="mt-20 border-t border-ink-100 bg-ink-900 text-ink-200">
-      <div class="container-shell grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="container-shell-full grid gap-10 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <div class="flex items-center gap-2">
             <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-ember-500 text-white">
@@ -49,7 +49,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
       </div>
 
       <div class="border-t border-white/10 py-5">
-        <div class="container-shell flex flex-col items-center justify-between gap-2 text-xs text-ink-400 sm:flex-row">
+        <div class="container-shell-full flex flex-col items-center justify-between gap-2 text-xs text-ink-400 sm:flex-row">
           <p>© {{ year }} FeastGo. All rights reserved.</p>
           <p>Made for food lovers, everywhere.</p>
         </div>

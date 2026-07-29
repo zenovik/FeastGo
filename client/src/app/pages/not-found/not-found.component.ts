@@ -7,7 +7,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
   standalone: true,
   imports: [RouterLink, IconComponent],
   template: `
-    <div class="container-shell flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
+    <div class="container-shell-full flex min-h-[60vh] flex-col items-center justify-center gap-3 text-center">
       <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-ember-50 text-ember-500">
         <app-icon name="alert-triangle" [size]="26" />
       </span>

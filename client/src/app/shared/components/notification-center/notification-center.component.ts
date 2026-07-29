@@ -215,6 +215,7 @@ export class NotificationCenterComponent implements OnInit {
 
   onItemClick(n: AppNotification) {
     this.notif.onNotificationClick(n);
+    if (n.actionUrl) this.closed.emit();
   }
 
   toggleArchiveOne(e: Event, n: AppNotification) {

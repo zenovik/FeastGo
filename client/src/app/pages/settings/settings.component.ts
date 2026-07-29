@@ -58,7 +58,7 @@ const APP_VERSION = '1.0.0';
   standalone: true,
   imports: [FormsModule, IconComponent, MobileFieldComponent, ProfileComponent],
   template: `
-    <div class="container-shell max-w-4xl py-10">
+    <div class="container-shell-full py-10">
       <h1 class="font-display text-2xl font-bold text-ink-900 dark:text-white">Settings</h1>
 
       <div class="mt-6 flex flex-col gap-6 md:flex-row">

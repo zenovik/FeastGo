@@ -18,7 +18,7 @@ const SORT_OPTIONS: { value: RestaurantQuery['sort']; label: string }[] = [
   standalone: true,
   imports: [IconComponent, RestaurantCardComponent],
   template: `
-    <div class="container-shell py-8">
+    <div class="container-shell-full py-8">
       <h1 class="flex flex-wrap items-center gap-2 font-display text-2xl font-bold text-ink-900">
         @if (query()) {
           <span>Results for "{{ query() }}"</span>
@@ -75,7 +75,7 @@ const SORT_OPTIONS: { value: RestaurantQuery['sort']; label: string }[] = [
       </div>
 
       @if (loading()) {
-        <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
           @for (i of [1, 2, 3, 4, 5, 6]; track i) {
             <div class="card-surface h-72 animate-pulse bg-ink-100"></div>
           }
@@ -87,7 +87,7 @@ const SORT_OPTIONS: { value: RestaurantQuery['sort']; label: string }[] = [
           <p class="text-sm">Try a different search term or clear your filters.</p>
         </div>
       } @else {
-        <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
           @for (r of restaurants(); track r._id) {
             <app-restaurant-card [restaurant]="r" />
           }

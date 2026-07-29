@@ -38,13 +38,13 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
         >
           <app-icon name="heart" [size]="18" [filled]="isFavorite(r)" [class.text-ember-600]="isFavorite(r)" />
         </button>
-        <div class="container-shell absolute bottom-4 left-0 right-0">
+        <div class="container-shell-full absolute bottom-4 left-0 right-0">
           <h1 class="font-display text-2xl font-extrabold text-white sm:text-3xl">{{ r.name }}</h1>
           <p class="mt-1 text-sm text-ink-200">{{ r.cuisines.join(', ') }}</p>
         </div>
       </div>
 
-      <div class="container-shell -mt-6 relative z-10">
+      <div class="container-shell-full -mt-6 relative z-10">
         <div class="card-surface flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
           <app-rating-badge [rating]="r.rating" />
           <span class="text-sm text-ink-500">{{ r.ratingCount }} ratings</span>
@@ -63,7 +63,7 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
         </div>
       </div>
 
-      <div class="container-shell mt-6 grid grid-cols-1 gap-8 pb-16 lg:grid-cols-[220px_1fr]">
+      <div class="container-shell-full mt-6 grid grid-cols-1 gap-8 pb-16 lg:grid-cols-[220px_1fr]">
         <nav class="hidden self-start lg:sticky lg:top-20 lg:block">
           <p class="mb-2 text-xs font-bold uppercase tracking-wide text-ink-400">Menu</p>
           <ul class="space-y-1">

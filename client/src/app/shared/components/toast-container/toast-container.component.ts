@@ -29,7 +29,7 @@ const KIND_ICON: Record<Toast['kind'], string> = {
   standalone: true,
   imports: [IconComponent],
   template: `
-    <div class="pointer-events-none fixed right-3 top-4 z-[200] flex w-[calc(100%-1.5rem)] max-w-sm flex-col gap-2 sm:right-5 sm:top-5">
+    <div class="pointer-events-none fixed bottom-4 right-3 z-[200] flex w-[calc(100%-1.5rem)] max-w-sm flex-col gap-2 sm:bottom-auto sm:right-auto sm:left-5 sm:top-20">
       @for (t of toast.toasts(); track t.id) {
         <div
           class="toast-slide-in pointer-events-auto relative overflow-hidden rounded-xl border shadow-[var(--shadow-pop)]"

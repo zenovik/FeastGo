@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   standalone: true,
   imports: [RouterLink, IconComponent, DatePipe, InrPipe],
   template: `
-    <div class="container-shell max-w-2xl py-10">
+    <div class="container-shell-full py-10">
       <h1 class="font-display text-2xl font-bold text-ink-900">Your orders</h1>
 
       @if (loading()) {

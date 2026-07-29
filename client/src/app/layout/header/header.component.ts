@@ -17,7 +17,7 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
   imports: [RouterLink, RouterLinkActive, IconComponent, SearchBarComponent, NotificationBellComponent, NotificationCenterComponent],
   template: `
     <header class="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur dark:border-ink-700 dark:bg-ink-900/90">
-      <div class="container-shell flex h-16 items-center gap-2 sm:gap-4">
+      <div class="container-shell-full flex h-16 items-center gap-2 sm:gap-4">
         <a routerLink="/" class="flex shrink-0 items-center gap-2">
           <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-ember-500 text-white">
             <app-icon name="flame" [size]="18" />
@@ -85,7 +85,7 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
           }
         </div>
 
-        <div class="mx-auto min-w-0 max-w-md flex-1">
+        <div class="min-w-0 max-w-xl flex-1">
           <app-search-bar variant="compact" [showVoice]="true" placeholder="Search restaurants or dishes" />
         </div>
 

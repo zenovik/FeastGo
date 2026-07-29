@@ -34,7 +34,7 @@ const EMPTY_ADDRESS_FORM: NewAddressForm = { label: 'Home', line1: '', landmark:
   standalone: true,
   imports: [FormsModule, RouterLink, IconComponent, MobileFieldComponent, InrPipe],
   template: `
-    <div class="container-shell max-w-2xl py-10">
+    <div class="container-shell-full max-w-4xl py-10">
       <a routerLink="/cart" class="flex items-center gap-1 text-sm font-medium text-ink-500 hover:text-ink-800">
         <app-icon name="arrow-left" [size]="16" /> Back to cart
       </a>

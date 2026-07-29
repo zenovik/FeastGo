@@ -22,7 +22,7 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
         <div class="absolute -bottom-24 -left-12 h-64 w-64 rounded-full bg-[#3B5BDB]/25 blur-3xl sm:-bottom-40 sm:-left-20 sm:h-96 sm:w-96"></div>
       </div>
 
-      <div class="container-shell relative py-16 sm:py-24 lg:py-36">
+      <div class="container-shell-full relative py-16 sm:py-24 lg:py-36">
         <p class="font-display text-xs font-bold uppercase tracking-[0.15em] text-ember-400 sm:text-sm sm:tracking-[0.2em]">
           Delivering happiness, one order at a time
         </p>
@@ -36,7 +36,7 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
       </div>
     </section>
 
-    <section class="container-shell py-8">
+    <section class="container-shell-full py-8">
       <div class="flex items-center justify-between">
         <h2 class="font-display text-xl font-bold text-ink-900">Explore More</h2>
         @if (!exploreLoading() && !exploreError()) {
@@ -97,14 +97,14 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
       }
     </section>
 
-    <section id="food-grid" class="container-shell py-8">
+    <section id="food-grid" class="container-shell-full py-8">
       <div class="flex items-center justify-between">
         <h2 class="font-display text-xl font-bold text-ink-900">Made for you</h2>
         <p class="text-sm text-ink-400">{{ total() }} dishes</p>
       </div>
 
       @if (loading()) {
-        <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
             <div class="card-surface h-72 animate-pulse bg-ink-100"></div>
           }
@@ -115,7 +115,7 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
           <p class="text-lg font-semibold text-ink-600">No dishes match your filters</p>
         </div>
       } @else {
-        <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           @for (item of visibleFeedItems(); track item.id) {
             <app-food-card [item]="item" />
           }
@@ -131,10 +131,10 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
 
     <section class="relative overflow-hidden py-16 sm:py-20">
       <img [src]="specialsBackground" alt="" class="absolute inset-0 h-full w-full object-cover" />
-      <div class="container-shell relative">
+      <div class="container-shell-full relative">
         <h2 class="font-display text-2xl font-bold text-white">Today's Specials</h2>
         <p class="mt-1 text-sm text-white/60">Hand-picked dishes, fresh off the grill.</p>
-        <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
           @for (item of todaysSpecials(); track item.id) {
             <div
               class="cursor-pointer overflow-hidden rounded-2xl border border-white/20 bg-white/10 backdrop-blur-lg transition hover:-translate-y-1"
@@ -164,12 +164,12 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
       </div>
     </section>
 
-    <section class="container-shell py-8">
+    <section class="container-shell-full py-8">
       <div class="flex items-center justify-between">
         <h2 class="font-display text-xl font-bold text-ink-900">Popular Near You</h2>
         <a routerLink="/restaurants" class="text-sm font-semibold text-ember-600 hover:text-ember-700">See all →</a>
       </div>
-      <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         @for (item of popularNearYou(); track item.id) {
           <app-food-card [item]="item" />
         }
@@ -177,7 +177,7 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
     </section>
 
     @if (recentlyOrdered().length) {
-      <section class="container-shell py-8">
+      <section class="container-shell-full py-8">
         <h2 class="font-display text-xl font-bold text-ink-900">Recently Ordered</h2>
         <div class="mt-4 flex gap-4 overflow-x-auto pb-2 scrollbar-none">
           @for (item of recentlyOrdered(); track item.id) {
@@ -189,9 +189,9 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
       </section>
     }
 
-    <section class="container-shell py-8 pb-16">
+    <section class="container-shell-full py-8 pb-16">
       <h2 class="font-display text-xl font-bold text-ink-900">Recommended For You</h2>
-      <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         @for (item of recommended(); track item.id) {
           <app-food-card [item]="item" />
         }
