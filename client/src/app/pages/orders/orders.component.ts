@@ -5,6 +5,7 @@ import { Order, OrderStatus } from '../../core/models/order.model';
 import { OrderService } from '../../core/services/order.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { InrPipe } from '../../shared/pipes/inr.pipe';
+import { cancelledByLabel, orderStatusBadgeClass } from '../../shared/utils/order-status';
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
   placed: 'Placed',
@@ -49,6 +50,9 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
                 <p class="font-display text-base font-bold text-ink-900">{{ o.restaurantName }}</p>
                 <p class="mt-0.5 text-xs text-ink-400">{{ o.createdAt | date: 'medium' }}</p>
                 <p class="mt-1 text-sm text-ink-500">{{ o.items.length }} item{{ o.items.length === 1 ? '' : 's' }} · {{ o.total | inr }}</p>
+                @if (o.status === 'cancelled') {
+                  <p class="mt-1 text-xs text-ink-400">Cancelled by {{ cancelledByLabel(o.cancelledByRole) }}{{ o.cancellationReason ? ' · ' + o.cancellationReason : '' }}</p>
+                }
               </div>
               <span
                 class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
@@ -66,6 +70,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
 export class OrdersComponent implements OnInit {
   loading = signal(true);
   orders = signal<Order[]>([]);
+  cancelledByLabel = cancelledByLabel;
 
   constructor(private orderService: OrderService) {}
 
@@ -83,8 +88,6 @@ export class OrdersComponent implements OnInit {
   }
 
   statusClass(status: OrderStatus): string {
-    if (status === 'delivered') return 'bg-basil-100 text-basil-600';
-    if (status === 'cancelled') return 'bg-ember-100 text-ember-700';
-    return 'bg-gold-400/15 text-gold-600';
+    return orderStatusBadgeClass(status);
   }
 }

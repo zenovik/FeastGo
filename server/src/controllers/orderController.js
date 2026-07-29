@@ -5,9 +5,16 @@ import DeliveryPartner from '../models/DeliveryPartner.js';
 import DeliveryAssignment from '../models/DeliveryAssignment.js';
 import DeliveryRating from '../models/DeliveryRating.js';
 import DeliveryEarning from '../models/DeliveryEarning.js';
+import SystemSettings from '../models/SystemSettings.js';
 import { ApiError } from '../utils/ApiError.js';
-import { notifySeller, notifyCustomer, notifyDeliveryCancelledToPartner, notifyDeliveryPartner } from '../utils/notify.js';
+import { notifySeller, notifyCustomer, notifyOrderCancellation, notifyDeliveryPartner } from '../utils/notify.js';
 import { resolveCoupon } from '../utils/coupon.js';
+
+// Customer can only cancel before the kitchen starts working the order:
+// while it's freshly placed, or briefly after the restaurant accepts it
+// (see CUSTOMER_CANCEL_GRACE below for the acceptance window).
+const CUSTOMER_CANCELLABLE_STATUSES = ['placed', 'confirmed'];
+const CANNOT_CANCEL_MESSAGE = 'This order can no longer be cancelled because the restaurant has already started preparing your food.';
 
 const TAX_RATE = 0.05;
 
@@ -155,41 +162,60 @@ export async function getOrder(req, res, next) {
   }
 }
 
+export async function getCancellationPolicy(_req, res, next) {
+  try {
+    const settings = await SystemSettings.getOrCreate();
+    res.json({ graceMinutes: settings.cancellationGraceMinutes });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function cancelOrder(req, res, next) {
   try {
+    const reason = String(req.body.reason ?? '').trim();
     const order = await Order.findOne({ _id: req.params.id, user: req.user._id });
     if (!order) throw new ApiError(404, 'Order not found');
-    if (['delivered', 'cancelled', 'out_for_delivery'].includes(order.status)) {
-      throw new ApiError(
-        400,
-        order.status === 'out_for_delivery' ? 'This order has already been picked up and can no longer be cancelled' : `Order already ${order.status}`
-      );
+    if (order.status === 'cancelled') throw new ApiError(400, 'This order has already been cancelled');
+    if (!CUSTOMER_CANCELLABLE_STATUSES.includes(order.status)) {
+      throw new ApiError(400, CANNOT_CANCEL_MESSAGE);
     }
+    if (order.status === 'confirmed') {
+      const settings = await SystemSettings.getOrCreate();
+      const confirmedAt = order.statusHistory.find((h) => h.status === 'confirmed')?.at;
+      const graceMs = settings.cancellationGraceMinutes * 60 * 1000;
+      if (confirmedAt && Date.now() - new Date(confirmedAt).getTime() > graceMs) {
+        throw new ApiError(400, CANNOT_CANCEL_MESSAGE);
+      }
+    }
+    if (!reason) throw new ApiError(400, 'A cancellation reason is required');
+
+    const previousStatus = order.status;
     order.status = 'cancelled';
     order.statusHistory.push({ status: 'cancelled', at: new Date() });
+    order.cancelledBy = req.user._id;
+    order.cancelledByRole = 'customer';
+    order.cancellationReason = reason;
+    order.cancelledAt = new Date();
+    order.cancelledFromStatus = previousStatus;
+    if (order.paymentMethod !== 'cod') {
+      order.refundStatus = 'requested';
+      order.refundAmount = order.total;
+    }
 
     // Free up the assigned partner (if any) — the order never reached pickup.
+    let freedPartnerId = null;
     if (order.deliveryPartner) {
+      freedPartnerId = order.deliveryPartner;
       await DeliveryAssignment.updateMany({ order: order._id, partner: order.deliveryPartner }, { status: 'cancelled' });
       await DeliveryPartner.updateOne({ _id: order.deliveryPartner, currentOrder: order._id }, { currentOrder: null });
-      await notifyDeliveryCancelledToPartner(order.deliveryPartner, order, 'Cancelled by customer');
       order.deliveryPartner = null;
       order.deliveryStatus = 'cancelled';
       order.deliveryStatusHistory.push({ status: 'cancelled' });
     }
     await order.save();
 
-    const restaurant = await Restaurant.findById(order.restaurant);
-    if (restaurant) {
-      await notifySeller(
-        restaurant,
-        'cancelled_order',
-        'Order cancelled',
-        `Order #${order._id.toString().slice(-6)} was cancelled by the customer`,
-        order._id
-      );
-    }
-    await notifyCustomer(order, 'cancelled_order', 'Order cancelled', `Your order #${order._id.toString().slice(-6)} has been cancelled`);
+    await notifyOrderCancellation(order, { cancelledByRole: 'customer', reason, deliveryPartnerId: freedPartnerId });
 
     res.json({ order });
   } catch (err) {

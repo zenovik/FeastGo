@@ -18,6 +18,10 @@ const systemSettingsSchema = new mongoose.Schema(
     // account is auto-flagged for admin review.
     maxReassignAttempts: { type: Number, default: 3 },
     maxRejectionsBeforeFlag: { type: Number, default: 5 },
+    // How long after a restaurant accepts an order the customer may still
+    // cancel it — once this elapses (or the order moves to 'preparing'),
+    // customer cancellation is blocked.
+    cancellationGraceMinutes: { type: Number, default: 5 },
     paymentGateway: {
       provider: { type: String, default: 'razorpay' },
       apiKey: { type: String, default: '' },

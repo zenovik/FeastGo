@@ -10,6 +10,7 @@ const SETTINGS_FIELDS = [
   'taxPercent',
   'maxReassignAttempts',
   'maxRejectionsBeforeFlag',
+  'cancellationGraceMinutes',
   'paymentGateway',
   'email',
   'sms',

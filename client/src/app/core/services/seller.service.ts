@@ -5,7 +5,7 @@ import { API_URL } from '../config';
 import { MenuItem } from '../models/menu-item.model';
 import { Order, SellerOrderDetail } from '../models/order.model';
 import { Restaurant } from '../models/restaurant.model';
-import { OrderMessage } from '../models/message.model';
+import { OrderMessage, UnreadMessageCounts } from '../models/message.model';
 import { requestWithProgress } from '../../shared/utils/http-progress';
 
 export interface SellerCoupon {
@@ -25,6 +25,7 @@ export interface SellerCoupon {
   getQty: number;
   comboItems: string[];
   comboPrice: number | null;
+  applicableItems: string[];
 }
 
 export interface SellerReview {
@@ -166,6 +167,10 @@ export class SellerService {
     );
   }
 
+  cancelOrder(id: string, reason: string) {
+    return firstValueFrom(this.http.post<{ order: Order }>(`${API_URL}/seller/orders/${id}/cancel`, { reason }));
+  }
+
   listCoupons() {
     return firstValueFrom(this.http.get<{ coupons: SellerCoupon[] }>(`${API_URL}/seller/coupons`));
   }
@@ -238,6 +243,10 @@ export class SellerService {
 
   sendMessage(orderId: string, text: string) {
     return firstValueFrom(this.http.post<{ message: OrderMessage }>(`${API_URL}/seller/orders/${orderId}/messages`, { text }));
+  }
+
+  getUnreadMessageCount() {
+    return firstValueFrom(this.http.get<UnreadMessageCounts>(`${API_URL}/seller/messages/unread-count`));
   }
 
   reportDeliveryIssue(orderId: string, reason: string) {

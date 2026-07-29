@@ -1,5 +1,6 @@
 import Notification from '../models/Notification.js';
 import User from '../models/User.js';
+import Restaurant from '../models/Restaurant.js';
 import { emitToRecipient } from '../realtime/socket.js';
 
 const PREF_KEY = {
@@ -280,4 +281,38 @@ export async function notifyFailedDelivery(order, reason = '') {
 
 export async function notifyCompletedDelivery(order) {
   await notifyAdmins('completed_delivery', 'Delivery completed', `Order #${order._id.toString().slice(-6)} was delivered successfully`, order._id);
+}
+
+const CANCELLED_BY_LABEL = {
+  customer: 'the customer',
+  seller: 'the restaurant',
+  delivery: 'the delivery partner',
+  admin: 'FeastGo support',
+  system: 'the system',
+};
+
+// Single fan-out for every cancellation path (customer/seller/admin cancel,
+// and any future one) — notifies whichever of customer/seller/delivery partner
+// weren't the one cancelling, plus admins, all with the same wording. Call
+// this AFTER order.save() with the already-mutated order (deliveryPartner may
+// already be null by then, so pass the id explicitly if it needs notifying).
+export async function notifyOrderCancellation(order, { cancelledByRole, reason, deliveryPartnerId = null }) {
+  const shortId = order._id.toString().slice(-6);
+  const byLabel = CANCELLED_BY_LABEL[cancelledByRole] ?? 'the system';
+  const reasonSuffix = reason ? `: ${reason}` : '';
+  const message = `Order #${shortId} was cancelled by ${byLabel}${reasonSuffix}`;
+
+  await notifyCustomer(order, 'cancelled_order', 'Order cancelled', message);
+
+  const restaurant = await Restaurant.findById(order.restaurant);
+  if (restaurant) {
+    await notifySeller(restaurant, 'cancelled_order', 'Order cancelled', message, order._id);
+  }
+
+  const partnerId = deliveryPartnerId ?? order.deliveryPartner;
+  if (partnerId) {
+    await notifyDeliveryCancelledToPartner(partnerId, order, reason);
+  }
+
+  await notifyAdmins('cancelled_order', 'Order cancelled', `${message} (${order.restaurantName})`, order._id);
 }

@@ -6,8 +6,32 @@ import { emitToRecipient } from '../realtime/socket.js';
 
 const MAX_MESSAGES = 200;
 
-async function listThread(order, thread) {
+// Fetching a thread is what a real inbox would call "opening" it — so this
+// is also the point where any unread messages addressed to the viewer in
+// that thread get marked read, the same way opening a chat clears its badge.
+async function listThread(order, thread, recipientId) {
+  await Message.updateMany({ order: order._id, thread, recipientId, readAt: null }, { readAt: new Date() });
   return Message.find({ order: order._id, thread }).sort({ createdAt: 1 }).limit(MAX_MESSAGES);
+}
+
+// Unread messages for one recipient, broken down by order + thread — what
+// lets each "Chat" button show its own badge instead of one lump sum with
+// nowhere obvious to put it (a recipient can have unread messages sitting in
+// several different orders' threads at once).
+async function unreadCountFor(recipientId, recipientRole) {
+  const rows = await Message.aggregate([
+    { $match: { recipientId, recipientRole, readAt: null } },
+    { $group: { _id: { order: '$order', thread: '$thread' }, count: { $sum: 1 } } },
+  ]);
+  const byOrder = {};
+  let total = 0;
+  for (const row of rows) {
+    const orderId = row._id.order.toString();
+    byOrder[orderId] = byOrder[orderId] || {};
+    byOrder[orderId][row._id.thread] = row.count;
+    total += row.count;
+  }
+  return { count: total, byOrder };
 }
 
 async function sendMessage({ order, thread, senderId, senderRole, senderName, recipientId, recipientRole, text }) {
@@ -36,7 +60,7 @@ export async function listCustomerMessages(req, res, next) {
     const order = await Order.findOne({ _id: req.params.id, user: req.user._id });
     if (!order) throw new ApiError(404, 'Order not found');
     if (!order.deliveryPartner) return res.json({ messages: [] });
-    res.json({ messages: await listThread(order, 'customer-delivery') });
+    res.json({ messages: await listThread(order, 'customer-delivery', req.user._id) });
   } catch (err) {
     next(err);
   }
@@ -71,7 +95,7 @@ export async function listSellerMessages(req, res, next) {
     const order = await Order.findOne({ _id: req.params.id, restaurant: req.user.restaurant });
     if (!order) throw new ApiError(404, 'Order not found');
     if (!order.deliveryPartner) return res.json({ messages: [] });
-    res.json({ messages: await listThread(order, 'seller-delivery') });
+    res.json({ messages: await listThread(order, 'seller-delivery', req.user._id) });
   } catch (err) {
     next(err);
   }
@@ -106,7 +130,7 @@ export async function listDeliveryMessages(req, res, next) {
     const withRole = req.query.with === 'seller' ? 'seller' : 'customer';
     const order = await Order.findOne({ _id: req.params.id, deliveryPartner: req.user._id });
     if (!order) throw new ApiError(404, 'Order not found');
-    res.json({ messages: await listThread(order, `${withRole}-delivery`) });
+    res.json({ messages: await listThread(order, `${withRole}-delivery`, req.user._id) });
   } catch (err) {
     next(err);
   }
@@ -138,6 +162,32 @@ export async function sendDeliveryMessage(req, res, next) {
       text: req.body.text,
     });
     res.status(201).json({ message });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---- Unread counts (the badge on each shell's message icon) ----
+
+export async function getCustomerUnreadMessageCount(req, res, next) {
+  try {
+    res.json(await unreadCountFor(req.user._id, 'customer'));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getSellerUnreadMessageCount(req, res, next) {
+  try {
+    res.json(await unreadCountFor(req.user._id, 'seller'));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getDeliveryUnreadMessageCount(req, res, next) {
+  try {
+    res.json(await unreadCountFor(req.user._id, 'delivery'));
   } catch (err) {
     next(err);
   }

@@ -27,6 +27,7 @@ export interface MenuItem {
   sortOrder?: number;
   scheduledAvailability?: ScheduledAvailability;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MenuCategory {

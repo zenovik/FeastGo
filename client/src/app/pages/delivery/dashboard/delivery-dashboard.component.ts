@@ -8,11 +8,19 @@ import {
   DeliveryWeeklyPerformanceDay,
 } from '../../../core/services/delivery.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { RealtimeService } from '../../../core/services/realtime.service';
+import { AppNotification } from '../../../core/models/notification.model';
 import { DeliveryOrderDetail, Order } from '../../../core/models/order.model';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { DeliveryShellComponent } from '../../../shared/components/delivery-shell/delivery-shell.component';
 import { DeliveryRouteMapComponent, MapPoint } from '../../../shared/components/delivery-route-map/delivery-route-map.component';
 import { InrPipe } from '../../../shared/pipes/inr.pipe';
+
+interface NewOrderAlert {
+  id: string;
+  title: string;
+  message: string;
+}
 
 const EMPTY_STATS: DeliveryDashboardStats = {
   todayDeliveries: 0,
@@ -64,6 +72,27 @@ function mapsLink(lat: number | null | undefined, lng: number | null | undefined
   template: `
     <app-delivery-shell title="Dashboard">
     <div>
+      @if (newOrderAlerts().length) {
+        <div class="mb-4 space-y-2">
+          @for (alert of newOrderAlerts(); track alert.id) {
+            <div class="new-order-alert card-surface flex items-center gap-3 border-2 border-ember-300 bg-ember-50 p-4 dark:border-ember-500/40 dark:bg-ember-500/10">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ember-500 text-white">
+                <app-icon name="bike" [size]="18" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-bold text-ink-900 dark:text-white">{{ alert.title }}</p>
+                <p class="truncate text-xs text-ink-600 dark:text-ink-300">{{ alert.message }}</p>
+              </div>
+              <a routerLink="/delivery/orders" class="shrink-0 rounded-lg bg-ember-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-ember-600" (click)="dismissAlert(alert.id)">
+                View
+              </a>
+              <button type="button" class="shrink-0 text-ink-400 hover:text-ink-700" (click)="dismissAlert(alert.id)" aria-label="Dismiss">
+                <app-icon name="x" [size]="14" />
+              </button>
+            </div>
+          }
+        </div>
+      }
       @if (auth.currentUser(); as partner) {
         @if (partner.isSuspended) {
           <div class="card-surface flex items-center gap-3 bg-ember-50 p-4">
@@ -341,6 +370,22 @@ function mapsLink(lat: number | null | undefined, lng: number | null | undefined
     }
     </app-delivery-shell>
   `,
+  styles: [
+    `
+      @keyframes newOrderPulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(230, 96, 40, 0.25);
+        }
+        50% {
+          box-shadow: 0 0 0 8px rgba(230, 96, 40, 0);
+        }
+      }
+      .new-order-alert {
+        animation: newOrderPulse 1.8s ease-in-out 3;
+      }
+    `,
+  ],
 })
 export class DeliveryDashboardComponent implements OnInit, OnDestroy {
   available = signal<Order[]>([]);
@@ -351,6 +396,7 @@ export class DeliveryDashboardComponent implements OnInit, OnDestroy {
   activeOrderDetail = signal<DeliveryOrderDetail | null>(null);
   partnerPoint = signal<MapPoint | null>(null);
   rewardsOpen = signal(false);
+  newOrderAlerts = signal<NewOrderAlert[]>([]);
 
   bonusAmount = BONUS_MILESTONE_AMOUNT;
 
@@ -384,6 +430,7 @@ export class DeliveryDashboardComponent implements OnInit, OnDestroy {
   previewBadges = computed(() => this.badges().slice(0, 4));
 
   private locationPollHandle?: ReturnType<typeof setInterval>;
+  private ordersRefreshTimer?: ReturnType<typeof setTimeout>;
 
   targetProgress(): number {
     const e = this.earnings();
@@ -423,7 +470,8 @@ export class DeliveryDashboardComponent implements OnInit, OnDestroy {
   constructor(
     public auth: DeliveryAuthService,
     private deliveryService: DeliveryService,
-    private toast: ToastService
+    private toast: ToastService,
+    private realtime: RealtimeService
   ) {}
 
   async ngOnInit() {
@@ -445,10 +493,43 @@ export class DeliveryDashboardComponent implements OnInit, OnDestroy {
 
     this.refreshLocation();
     this.locationPollHandle = setInterval(() => this.refreshLocation(), 30000);
+
+    // A new assignment (auto or admin-assigned) lands here in real time via
+    // the shell's already-open socket. It gets its own top-of-dashboard
+    // banner (on top of the global toast/bell every notification already
+    // triggers), and refreshes available/active orders + stats so the
+    // dashboard reflects it without a manual reload.
+    this.realtime.on<AppNotification>('notification:new', (n) => {
+      if (n.type === 'new_delivery_order') {
+        this.newOrderAlerts.update((list) => [{ id: n._id, title: n.title, message: n.message }, ...list].slice(0, 5));
+      }
+      if (n.relatedOrder) {
+        clearTimeout(this.ordersRefreshTimer);
+        this.ordersRefreshTimer = setTimeout(() => this.refreshOrders(), 400);
+      }
+    });
   }
 
   ngOnDestroy() {
     if (this.locationPollHandle) clearInterval(this.locationPollHandle);
+  }
+
+  dismissAlert(id: string) {
+    this.newOrderAlerts.update((list) => list.filter((a) => a.id !== id));
+  }
+
+  private async refreshOrders() {
+    const [availableRes, statsRes, activeRes] = await Promise.all([
+      this.deliveryService.listAvailableOrders(),
+      this.deliveryService.getDashboardStats(),
+      this.deliveryService.listMyOrders(),
+    ]);
+    this.available.set(availableRes.orders);
+    this.stats.set(statsRes);
+    const active = activeRes.orders.find((o) => !['delivered', 'cancelled', 'failed'].includes(o.deliveryStatus));
+    this.activeOrder.set(active ?? null);
+    if (active) this.refreshActiveOrderDetail(active._id);
+    else this.activeOrderDetail.set(null);
   }
 
   private async refreshActiveOrderDetail(orderId: string) {

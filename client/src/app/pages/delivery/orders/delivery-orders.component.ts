@@ -2,6 +2,8 @@ import { Component, ElementRef, OnDestroy, OnInit, ViewChild, signal } from '@an
 import { FormsModule } from '@angular/forms';
 import { DeliveryOrderDetail, Order } from '../../../core/models/order.model';
 import { OrderMessage } from '../../../core/models/message.model';
+import { ConfirmService } from '../../../core/services/confirm.service';
+import { DeliveryAuthService } from '../../../core/services/delivery-auth.service';
 import { DeliveryService } from '../../../core/services/delivery.service';
 import { RealtimeService } from '../../../core/services/realtime.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -14,7 +16,11 @@ import { InrPipe } from '../../../shared/pipes/inr.pipe';
 declare const BarcodeDetector: { new (options: { formats: string[] }): { detect(source: CanvasImageSource): Promise<{ rawValue: string }[]> } };
 
 const ACTIVE_STATUSES = ['assigned', 'accepted', 'reached_restaurant', 'picked_up', 'out_for_delivery', 'reached_customer'];
+const POST_PICKUP_STATUSES = ['picked_up', 'out_for_delivery', 'reached_customer'];
 type ChatWith = 'customer' | 'seller' | null;
+
+const REJECT_REASONS = ['Vehicle Issue', 'Emergency', 'Unable to Reach Restaurant', 'Heavy Traffic', 'Personal Emergency', 'Other'];
+const CANCEL_REASONS = ['Vehicle Issue', 'Emergency', 'Unable to Reach Restaurant', 'Heavy Traffic', 'Personal Emergency', 'Other'];
 
 function mapsLink(lat: number | null | undefined, lng: number | null | undefined, fallbackAddress: string): string {
   if (lat && lng) return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
@@ -62,8 +68,13 @@ function mapsLink(lat: number | null | undefined, lng: number | null | undefined
                       <app-icon name="phone" [size]="13" /> Call seller
                     </a>
                   }
-                  <button type="button" class="flex items-center gap-1 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-bold text-ink-700" (click)="openChat('seller')">
+                  <button type="button" class="relative flex items-center gap-1 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-bold text-ink-700" (click)="openChat('seller')">
                     <app-icon name="mail" [size]="13" /> Chat
+                    @if (unreadFromSeller() > 0) {
+                      <span class="absolute -right-1.5 -top-1.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white">
+                        {{ unreadFromSeller() > 9 ? '9+' : unreadFromSeller() }}
+                      </span>
+                    }
                   </button>
                 </div>
               </div>
@@ -78,8 +89,13 @@ function mapsLink(lat: number | null | undefined, lng: number | null | undefined
                   <a [href]="'tel:' + d.user.phone" class="flex items-center gap-1 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-bold text-ink-700">
                     <app-icon name="phone" [size]="13" /> Call customer
                   </a>
-                  <button type="button" class="flex items-center gap-1 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-bold text-ink-700" (click)="openChat('customer')">
+                  <button type="button" class="relative flex items-center gap-1 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-bold text-ink-700" (click)="openChat('customer')">
                     <app-icon name="mail" [size]="13" /> Chat
+                    @if (unreadFromCustomer() > 0) {
+                      <span class="absolute -right-1.5 -top-1.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white">
+                        {{ unreadFromCustomer() > 9 ? '9+' : unreadFromCustomer() }}
+                      </span>
+                    }
                   </button>
                 </div>
               </div>
@@ -144,10 +160,19 @@ function mapsLink(lat: number | null | undefined, lng: number | null | undefined
               <button type="button" [disabled]="otpInput.trim().length < 4" class="w-full rounded-lg bg-basil-500 py-2.5 text-sm font-bold text-white disabled:opacity-50" (click)="markDelivered()">
                 Mark delivered
               </button>
-              <button type="button" class="w-full rounded-lg border border-ember-500 py-2 text-xs font-bold text-ember-600" (click)="reportFailed()">Report failed delivery</button>
             }
             @if (o.deliveryStatus === 'accepted' || o.deliveryStatus === 'reached_restaurant') {
               <button type="button" class="w-full text-xs font-semibold text-ink-400" (click)="cancelDelivery()">Can't complete this delivery</button>
+            }
+            @if (isPostPickup(o)) {
+              <div class="flex gap-2">
+                <button type="button" class="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-ink-200 py-2 text-xs font-bold text-ink-600" (click)="reportFailed()">
+                  <app-icon name="alert-triangle" [size]="13" /> Report Issue
+                </button>
+                <button type="button" [disabled]="submittingSupport()" class="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-ink-200 py-2 text-xs font-bold text-ink-600 disabled:opacity-50" (click)="contactSupport(o)">
+                  <app-icon name="headset" [size]="13" /> {{ submittingSupport() ? 'Sending…' : 'Contact Support' }}
+                </button>
+              </div>
             }
           </div>
         </div>
@@ -185,13 +210,38 @@ export class DeliveryOrdersComponent implements OnInit, OnDestroy {
 
   chatWith = signal<ChatWith>(null);
   chatMessages = signal<OrderMessage[]>([]);
+  unreadFromCustomer = signal(0);
+  unreadFromSeller = signal(0);
+  submittingSupport = signal(false);
   private messageListenerAttached = false;
 
   constructor(
     private deliveryService: DeliveryService,
     private realtime: RealtimeService,
+    private confirmService: ConfirmService,
+    private deliveryAuth: DeliveryAuthService,
     public toast: ToastService
   ) {}
+
+  isPostPickup(o: Order): boolean {
+    return POST_PICKUP_STATUSES.includes(o.deliveryStatus);
+  }
+
+  async contactSupport(o: Order) {
+    this.submittingSupport.set(true);
+    try {
+      const shortId = o._id.slice(-6);
+      await this.deliveryAuth.submitSupportRequest(
+        `Help needed with delivery #${shortId}`,
+        `I need support with an active delivery — order #${shortId} from ${o.restaurantName}.`
+      );
+      this.toast.success("Support has been notified — we'll reach out shortly");
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? 'Could not reach support');
+    } finally {
+      this.submittingSupport.set(false);
+    }
+  }
 
   private refreshTimer?: ReturnType<typeof setTimeout>;
 
@@ -206,6 +256,8 @@ export class DeliveryOrdersComponent implements OnInit, OnDestroy {
           this.chatMessages.update((list) => [...list, m]);
         } else {
           this.toast.info(`New message from ${m.senderName}`, { description: m.text });
+          if (m.thread === 'customer-delivery') this.unreadFromCustomer.update((c) => c + 1);
+          else this.unreadFromSeller.update((c) => c + 1);
         }
       });
       this.realtime.on<{ relatedOrder?: string | null }>('notification:new', (n) => {
@@ -230,8 +282,18 @@ export class DeliveryOrdersComponent implements OnInit, OnDestroy {
         const detailRes = await this.deliveryService.getOrderDetail(active._id);
         this.detail.set(detailRes.order);
         this.sellerPhone.set(detailRes.sellerPhone);
+        this.deliveryService
+          .getUnreadMessageCount()
+          .then((r) => {
+            const threads = r.byOrder[active._id] ?? {};
+            this.unreadFromCustomer.set(threads['customer-delivery'] ?? 0);
+            this.unreadFromSeller.set(threads['seller-delivery'] ?? 0);
+          })
+          .catch(() => {});
       } else {
         this.detail.set(null);
+        this.unreadFromCustomer.set(0);
+        this.unreadFromSeller.set(0);
       }
     } finally {
       this.loading.set(false);
@@ -262,11 +324,15 @@ export class DeliveryOrdersComponent implements OnInit, OnDestroy {
   async reject() {
     const o = this.order();
     if (!o) return;
-    const reason = (prompt('Why are you rejecting this order? A reason is required.') ?? '').trim();
-    if (!reason) {
-      this.toast.error('A rejection reason is required');
-      return;
-    }
+    const { confirmed, reason } = await this.confirmService.askWithReason({
+      title: 'Reject this order?',
+      message: "It'll be reassigned to another delivery partner.",
+      confirmLabel: 'Reject Order',
+      cancelLabel: 'Keep Order',
+      reasonLabel: 'Reason for rejecting',
+      reasons: REJECT_REASONS,
+    });
+    if (!confirmed || !reason) return;
     try {
       await this.deliveryService.rejectOrder(o._id, reason);
       this.toast.success('Order rejected');
@@ -376,8 +442,15 @@ export class DeliveryOrdersComponent implements OnInit, OnDestroy {
   async cancelDelivery() {
     const o = this.order();
     if (!o) return;
-    if (!confirm("Cancel this delivery? It'll be reassigned to another partner.")) return;
-    const reason = prompt('Reason (optional):') ?? '';
+    const { confirmed, reason } = await this.confirmService.askWithReason({
+      title: 'Cancel this delivery?',
+      message: "It'll be unassigned from you and reassigned to another delivery partner.",
+      confirmLabel: 'Cancel Delivery',
+      cancelLabel: 'Keep Delivery',
+      reasonLabel: 'Reason',
+      reasons: CANCEL_REASONS,
+    });
+    if (!confirmed || !reason) return;
     try {
       await this.deliveryService.updateDeliveryStatus(o._id, 'cancelled', { reason });
       this.toast.success('Delivery cancelled');
@@ -391,6 +464,8 @@ export class DeliveryOrdersComponent implements OnInit, OnDestroy {
     const o = this.order();
     if (!o) return;
     this.chatWith.set(withRole);
+    if (withRole === 'customer') this.unreadFromCustomer.set(0);
+    else this.unreadFromSeller.set(0);
     try {
       const res = await this.deliveryService.listMessages(o._id, withRole);
       this.chatMessages.set(res.messages);

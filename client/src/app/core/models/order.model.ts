@@ -79,6 +79,11 @@ export interface Order {
   refundStatus?: 'none' | 'requested' | 'approved' | 'rejected' | 'refunded';
   refundAmount?: number;
   refundReason?: string;
+  cancelledBy?: string | null;
+  cancelledByRole?: 'customer' | 'seller' | 'delivery' | 'admin' | 'system' | null;
+  cancellationReason?: string;
+  cancelledAt?: string | null;
+  cancelledFromStatus?: OrderStatus | null;
   tip?: number;
   deliveryStatus: DeliveryStatus;
   deliveryStatusHistory: DeliveryStatusHistoryEntry[];

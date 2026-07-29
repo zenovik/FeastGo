@@ -307,8 +307,8 @@ export class AdminService {
     return firstValueFrom(this.http.patch<{ order: Order }>(`${API_URL}/admin/orders/${id}/status`, { status }));
   }
 
-  cancelOrder(id: string) {
-    return firstValueFrom(this.http.post<{ order: Order }>(`${API_URL}/admin/orders/${id}/cancel`, {}));
+  cancelOrder(id: string, reason: string) {
+    return firstValueFrom(this.http.post<{ order: Order }>(`${API_URL}/admin/orders/${id}/cancel`, { reason }));
   }
 
   listRefundRequests(status?: string) {

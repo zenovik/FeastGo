@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DeliveryStatus, Order, OrderStatus } from '../../core/models/order.model';
 import { OrderMessage } from '../../core/models/message.model';
+import { AuthService } from '../../core/services/auth.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { OrderService } from '../../core/services/order.service';
 import { RealtimeService } from '../../core/services/realtime.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -11,8 +13,14 @@ import { ChatPanelComponent } from '../../shared/components/chat-panel/chat-pane
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { QrCodeComponent } from '../../shared/components/qr-code/qr-code.component';
 import { InrPipe } from '../../shared/pipes/inr.pipe';
+import { cancelledByLabel, refundStatusClass, refundStatusLabel } from '../../shared/utils/order-status';
 
-const CANCELLABLE_STATUSES: OrderStatus[] = ['placed', 'confirmed', 'preparing', 'ready_for_pickup'];
+// Customer may cancel a freshly placed order outright, or briefly after the
+// restaurant accepts it (see graceMinutes, fetched from the server-configured
+// policy) — never once it's preparing or further along.
+const NOT_YET_PREPARING_STATUSES: OrderStatus[] = ['placed', 'confirmed'];
+const BLOCKED_CANCEL_MESSAGE = 'This order can no longer be cancelled because the restaurant has already started preparing your food.';
+const CUSTOMER_CANCEL_REASONS = ['Changed my mind', 'Ordered by mistake', 'Found a better option elsewhere', 'Order is taking too long', 'Other'];
 
 // Two parallel state machines — Order.status (seller-driven, coarse) and
 // Order.deliveryStatus (delivery-partner-driven, fine-grained) — merged into
@@ -62,9 +70,26 @@ const STEPS: UnifiedStep[] = [
         </div>
 
         @if (o.status === 'cancelled') {
-          <div class="card-surface mt-6 flex items-center gap-3 p-4 text-ember-700">
-            <app-icon name="alert-triangle" [size]="20" />
-            <p class="text-sm font-semibold">This order was cancelled.</p>
+          <div class="card-surface mt-6 p-4 text-ember-700">
+            <div class="flex items-center gap-3">
+              <app-icon name="alert-triangle" [size]="20" />
+              <p class="text-sm font-semibold">This order was cancelled.</p>
+            </div>
+            <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-500">
+              <dt class="font-semibold">Cancelled by</dt>
+              <dd>{{ cancelledByLabel(o.cancelledByRole) }}</dd>
+              @if (o.cancellationReason) {
+                <dt class="font-semibold">Reason</dt>
+                <dd>{{ o.cancellationReason }}</dd>
+              }
+              @if (o.cancelledAt) {
+                <dt class="font-semibold">Cancelled at</dt>
+                <dd>{{ o.cancelledAt | date: 'medium' }}</dd>
+              }
+            </dl>
+            @if (refundLabel(o); as label) {
+              <span class="mt-3 inline-block rounded-full px-2.5 py-1 text-xs font-bold" [class]="refundClass(o)">{{ label }}</span>
+            }
           </div>
         } @else if (o.status === 'rejected') {
           <div class="card-surface mt-6 flex items-center gap-3 p-4 text-ember-700">
@@ -167,8 +192,13 @@ const STEPS: UnifiedStep[] = [
                 <a [href]="'tel:' + p.phone" class="flex items-center gap-1.5 rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-bold text-ink-700">
                   <app-icon name="phone" [size]="13" /> Call
                 </a>
-                <button type="button" class="flex items-center gap-1.5 rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-bold text-ink-700" (click)="openChat()">
+                <button type="button" class="relative flex items-center gap-1.5 rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-bold text-ink-700" (click)="openChat()">
                   <app-icon name="mail" [size]="13" /> Chat
+                  @if (unreadChatCount() > 0) {
+                    <span class="absolute -right-1.5 -top-1.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white">
+                      {{ unreadChatCount() > 9 ? '9+' : unreadChatCount() }}
+                    </span>
+                  }
                 </button>
               </div>
             </div>
@@ -219,7 +249,7 @@ const STEPS: UnifiedStep[] = [
           <app-icon name="download" [size]="14" /> Download invoice
         </button>
 
-        @if (isCancellable(o.status)) {
+        @if (isCancellable(o)) {
           <button
             type="button"
             [disabled]="cancelling()"
@@ -228,6 +258,21 @@ const STEPS: UnifiedStep[] = [
           >
             {{ cancelling() ? 'Cancelling…' : 'Cancel order' }}
           </button>
+        } @else if (!['delivered', 'cancelled', 'rejected', 'failed', 'returned'].includes(o.status)) {
+          <div class="card-surface mt-4 p-4">
+            <div class="flex items-start gap-3">
+              <app-icon name="info" [size]="18" class="mt-0.5 shrink-0 text-ink-400" />
+              <p class="text-sm font-semibold text-ink-700">{{ blockedCancelMessage }}</p>
+            </div>
+            <button
+              type="button"
+              [disabled]="submittingSupport()"
+              class="mt-3 flex items-center gap-1.5 rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-bold text-ink-700 hover:bg-ink-50 disabled:opacity-50"
+              (click)="contactSupport(o)"
+            >
+              <app-icon name="headset" [size]="13" /> {{ submittingSupport() ? 'Sending…' : 'Contact Support' }}
+            </button>
+          </div>
         }
 
         @if (o.status === 'delivered' && partner() && !rated()) {
@@ -324,25 +369,40 @@ export class OrderTrackingComponent implements OnInit, OnDestroy {
   rated = signal(false);
   chatOpen = signal(false);
   chatMessages = signal<OrderMessage[]>([]);
+  unreadChatCount = signal(0);
+  submittingSupport = signal(false);
+  blockedCancelMessage = BLOCKED_CANCEL_MESSAGE;
+  cancelledByLabel = cancelledByLabel;
+  private graceMinutes = 5;
   private pollHandle?: ReturnType<typeof setInterval>;
 
   constructor(
     private route: ActivatedRoute,
     private orderService: OrderService,
     private toast: ToastService,
-    private realtime: RealtimeService
+    private realtime: RealtimeService,
+    private confirmService: ConfirmService,
+    private authService: AuthService
   ) {}
 
   async ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id')!;
     await this.fetch(id);
     this.loading.set(false);
+    this.orderService.getCancellationPolicy().then((p) => (this.graceMinutes = p.graceMinutes)).catch(() => {});
     // 3s poll is a safety net; the notification listener below is what makes
     // seller/delivery-partner status changes show up effectively instantly.
     this.pollHandle = setInterval(() => this.fetch(id), 3000);
+    this.orderService
+      .getUnreadMessageCount()
+      .then((res) => this.unreadChatCount.set(res.byOrder[id]?.['customer-delivery'] ?? 0))
+      .catch(() => {});
     this.realtime.on<OrderMessage>('message:new', (m) => {
-      if (m.order === this.order()?._id) {
+      if (m.order !== this.order()?._id) return;
+      if (this.chatOpen()) {
         this.chatMessages.update((msgs) => [...msgs, m]);
+      } else {
+        this.unreadChatCount.update((c) => c + 1);
       }
     });
     this.realtime.on<{ relatedOrder?: string | null }>('notification:new', (n) => {
@@ -419,14 +479,38 @@ export class OrderTrackingComponent implements OnInit, OnDestroy {
     return o.status === 'delivered' ? 'Paid (Cash on delivery)' : 'Pay on delivery (Cash)';
   }
 
-  isCancellable(status: OrderStatus): boolean {
-    return CANCELLABLE_STATUSES.includes(status);
+  isCancellable(o: Order): boolean {
+    if (!NOT_YET_PREPARING_STATUSES.includes(o.status)) return false;
+    if (o.status === 'placed') return true;
+    // 'confirmed' — only within the grace period after the restaurant accepted.
+    const confirmedAt = o.statusHistory.find((h) => h.status === 'confirmed')?.at;
+    if (!confirmedAt) return true;
+    const elapsedMs = Date.now() - new Date(confirmedAt).getTime();
+    return elapsedMs <= this.graceMinutes * 60 * 1000;
+  }
+
+  refundLabel(o: Order): string {
+    return refundStatusLabel(o.refundStatus);
+  }
+
+  refundClass(o: Order): string {
+    return refundStatusClass(o.refundStatus);
   }
 
   async cancelOrder(id: string) {
+    const { confirmed, reason } = await this.confirmService.askWithReason({
+      title: 'Cancel Order?',
+      message: 'Are you sure you want to cancel this order?',
+      confirmLabel: 'Cancel Order',
+      cancelLabel: 'Keep Order',
+      reasonLabel: 'Cancellation Reason',
+      reasons: CUSTOMER_CANCEL_REASONS,
+    });
+    if (!confirmed || !reason) return;
+
     this.cancelling.set(true);
     try {
-      const { order } = await this.orderService.cancel(id);
+      const { order } = await this.orderService.cancel(id, reason);
       this.order.set(order);
       if (this.pollHandle) clearInterval(this.pollHandle);
       this.toast.success('Order cancelled');
@@ -434,6 +518,22 @@ export class OrderTrackingComponent implements OnInit, OnDestroy {
       this.toast.error(err?.error?.message ?? 'Could not cancel order');
     } finally {
       this.cancelling.set(false);
+    }
+  }
+
+  async contactSupport(o: Order) {
+    this.submittingSupport.set(true);
+    try {
+      const shortId = o._id.slice(-6);
+      await this.authService.submitSupportRequest(
+        `Cancellation request for order #${shortId}`,
+        `I'd like help cancelling order #${shortId} at ${o.restaurantName} — it's already past the point I can cancel it myself.`
+      );
+      this.toast.success("Support has been notified — we'll reach out shortly");
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? 'Could not reach support');
+    } finally {
+      this.submittingSupport.set(false);
     }
   }
 
@@ -455,6 +555,7 @@ export class OrderTrackingComponent implements OnInit, OnDestroy {
     const id = this.order()?._id;
     if (!id) return;
     this.chatOpen.set(true);
+    this.unreadChatCount.set(0);
     try {
       const { messages } = await this.orderService.listMessages(id);
       this.chatMessages.set(messages);

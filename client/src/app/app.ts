@@ -33,7 +33,7 @@ const MOBILE_BREAKPOINT_PX = 768;
   ],
   template: `
     @if (showCustomerChrome()) {
-      <div class="flex min-h-screen flex-col bg-ink-50 text-ink-800 dark:bg-ink-900 dark:text-ink-100" [class.dark]="theme.dark()">
+      <div class="flex min-h-screen flex-col bg-ink-50 text-ink-800 dark:bg-ink-900 dark:text-ink-100" [class.dark]="theme.dark() && !isAuthPage()">
         <app-header />
         <main class="flex-1">
           <router-outlet />
@@ -41,16 +41,20 @@ const MOBILE_BREAKPOINT_PX = 768;
         <app-footer />
       </div>
       <app-cart-drawer />
-      <app-confirm-dialog />
       <app-product-modal />
     } @else {
       <router-outlet />
     }
+    <app-confirm-dialog />
     <app-toast-container />
   `,
 })
 export class App {
   showCustomerChrome = signal(true);
+  // The login/signup page's card is deliberately light-only (glassmorphism
+  // gradient, no dark: variants) — forcing dark off here instead of retrofitting
+  // it avoids a half-dark header sandwiching a light card.
+  isAuthPage = signal(false);
 
   constructor(
     router: Router,
@@ -64,6 +68,7 @@ export class App {
     router.events.subscribe((event) => {
       if (event instanceof NavigationEnd) {
         this.showCustomerChrome.set(!ROLE_PANEL_PREFIXES.some((prefix) => event.urlAfterRedirects.startsWith(prefix)));
+        this.isAuthPage.set(event.urlAfterRedirects.startsWith('/login'));
       }
     });
 

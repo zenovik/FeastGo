@@ -1,6 +1,8 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DashboardStats, AdminService } from '../../../core/services/admin.service';
+import { RealtimeService } from '../../../core/services/realtime.service';
+import { AppNotification } from '../../../core/models/notification.model';
 import { AdminShellComponent } from '../../../shared/components/admin-shell/admin-shell.component';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { MiniChartComponent, ChartPoint } from '../../../shared/components/mini-chart/mini-chart.component';
@@ -13,12 +15,44 @@ interface StatCard {
   link?: string;
 }
 
+interface IssueAlert {
+  id: string;
+  title: string;
+  message: string;
+}
+
+// Exact title sent by sellerController's reportDeliveryIssue — see the same
+// constant/comment in admin-shell.component.ts for why title (not type) is
+// what isolates this specific event.
+const DELIVERY_ISSUE_TITLE = 'Delivery issue reported';
+
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
   imports: [AdminShellComponent, IconComponent, MiniChartComponent, InrPipe, RouterLink],
   template: `
     <app-admin-shell title="Dashboard">
+      @if (issueAlerts().length) {
+        <div class="mb-4 space-y-2">
+          @for (alert of issueAlerts(); track alert.id) {
+            <div class="new-issue-alert card-surface flex items-center gap-3 border-2 border-ember-300 bg-ember-50 p-4 dark:border-ember-500/40 dark:bg-ember-500/10">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ember-500 text-white">
+                <app-icon name="alert-triangle" [size]="18" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-bold text-ink-900 dark:text-white">{{ alert.title }}</p>
+                <p class="truncate text-xs text-ink-600 dark:text-ink-300">{{ alert.message }}</p>
+              </div>
+              <a routerLink="/admin/orders" class="shrink-0 rounded-lg bg-ember-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-ember-600" (click)="dismissAlert(alert.id)">
+                View
+              </a>
+              <button type="button" class="shrink-0 text-ink-400 hover:text-ink-700" (click)="dismissAlert(alert.id)" aria-label="Dismiss">
+                <app-icon name="x" [size]="14" />
+              </button>
+            </div>
+          }
+        </div>
+      }
       @if (stats(); as s) {
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           @for (card of statCards(s); track card.label) {
@@ -127,14 +161,44 @@ interface StatCard {
       }
     </app-admin-shell>
   `,
+  styles: [
+    `
+      @keyframes newIssuePulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(230, 96, 40, 0.25);
+        }
+        50% {
+          box-shadow: 0 0 0 8px rgba(230, 96, 40, 0);
+        }
+      }
+      .new-issue-alert {
+        animation: newIssuePulse 1.8s ease-in-out 3;
+      }
+    `,
+  ],
 })
 export class AdminDashboardComponent implements OnInit {
   stats = signal<DashboardStats | null>(null);
+  issueAlerts = signal<IssueAlert[]>([]);
 
-  constructor(private adminService: AdminService) {}
+  constructor(
+    private adminService: AdminService,
+    private realtime: RealtimeService
+  ) {}
 
   async ngOnInit() {
     this.stats.set(await this.adminService.getDashboardStats());
+
+    this.realtime.on<AppNotification>('notification:new', (n) => {
+      if (n.title === DELIVERY_ISSUE_TITLE) {
+        this.issueAlerts.update((list) => [{ id: n._id, title: n.title, message: n.message }, ...list].slice(0, 5));
+      }
+    });
+  }
+
+  dismissAlert(id: string) {
+    this.issueAlerts.update((list) => list.filter((a) => a.id !== id));
   }
 
   statCards(s: DashboardStats): StatCard[] {

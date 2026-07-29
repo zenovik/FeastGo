@@ -23,6 +23,7 @@ import {
   notifySellerAccount,
   notifyDeliveryPartner,
   notifyAdmins,
+  notifyOrderCancellation,
 } from '../utils/notify.js';
 import { autoAssignDeliveryPartner } from '../utils/deliveryAssign.js';
 
@@ -674,14 +675,42 @@ export async function updateOrderStatusAdmin(req, res, next) {
 
 export async function cancelOrderAdmin(req, res, next) {
   try {
+    const reason = String(req.body.reason ?? '').trim();
+    if (!reason) throw new ApiError(400, 'A cancellation reason is required');
+
     const order = await Order.findById(req.params.id);
     if (!order) throw new ApiError(404, 'Order not found');
     if (['delivered', 'cancelled'].includes(order.status)) throw new ApiError(400, `Order already ${order.status}`);
+
+    const previousStatus = order.status;
     order.status = 'cancelled';
     order.statusHistory.push({ status: 'cancelled' });
+    order.cancelledBy = req.user._id;
+    order.cancelledByRole = 'admin';
+    order.cancellationReason = reason;
+    order.cancelledAt = new Date();
+    order.cancelledFromStatus = previousStatus;
+    if (order.paymentMethod !== 'cod' && order.refundStatus === 'none') {
+      order.refundStatus = 'requested';
+      order.refundAmount = order.total;
+    }
+
+    // Admin can cancel at any stage, including mid-delivery — free the
+    // partner the same way the customer/seller cancel paths do so they
+    // aren't left holding an order that no longer exists for them.
+    let freedPartnerId = null;
+    if (order.deliveryPartner) {
+      freedPartnerId = order.deliveryPartner;
+      await DeliveryAssignment.updateMany({ order: order._id, partner: order.deliveryPartner }, { status: 'cancelled' });
+      await DeliveryPartner.updateOne({ _id: order.deliveryPartner, currentOrder: order._id }, { currentOrder: null });
+      order.deliveryPartner = null;
+      order.deliveryStatus = 'cancelled';
+      order.deliveryStatusHistory.push({ status: 'cancelled' });
+    }
     await order.save();
-    await notifyCustomerOrderStatus(order, 'cancelled');
-    await logAdminAction(req, 'order.cancel', { targetType: 'Order', targetId: order._id });
+
+    await notifyOrderCancellation(order, { cancelledByRole: 'admin', reason, deliveryPartnerId: freedPartnerId });
+    await logAdminAction(req, 'order.cancel', { targetType: 'Order', targetId: order._id, details: reason });
     res.json({ order });
   } catch (err) {
     next(err);

@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
 import { Address } from '../models/user.model';
 import { Order } from '../models/order.model';
-import { OrderMessage } from '../models/message.model';
+import { OrderMessage, UnreadMessageCounts } from '../models/message.model';
 
 export interface PlaceOrderPayload {
   restaurantSlug: string;
@@ -30,8 +30,12 @@ export class OrderService {
     return firstValueFrom(this.http.get<{ order: Order }>(`${API_URL}/orders/${id}`));
   }
 
-  cancel(id: string) {
-    return firstValueFrom(this.http.post<{ order: Order }>(`${API_URL}/orders/${id}/cancel`, {}));
+  cancel(id: string, reason: string) {
+    return firstValueFrom(this.http.post<{ order: Order }>(`${API_URL}/orders/${id}/cancel`, { reason }));
+  }
+
+  getCancellationPolicy() {
+    return firstValueFrom(this.http.get<{ graceMinutes: number }>(`${API_URL}/orders/cancellation-policy`));
   }
 
   rateDelivery(id: string, rating: number, comment: string, tip: number) {
@@ -44,5 +48,9 @@ export class OrderService {
 
   sendMessage(orderId: string, text: string) {
     return firstValueFrom(this.http.post<{ message: OrderMessage }>(`${API_URL}/orders/${orderId}/messages`, { text }));
+  }
+
+  getUnreadMessageCount() {
+    return firstValueFrom(this.http.get<UnreadMessageCounts>(`${API_URL}/orders/messages/unread-count`));
   }
 }

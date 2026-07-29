@@ -1,7 +1,10 @@
 import { Component, Input, OnDestroy, OnInit, effect, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { DeliveryAuthService } from '../../../core/services/delivery-auth.service';
+import { DeliveryService } from '../../../core/services/delivery.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { RealtimeService } from '../../../core/services/realtime.service';
+import { AppNotification } from '../../../core/models/notification.model';
 import { ThemeService } from '../../../core/services/theme.service';
 import { IconComponent } from '../icon/icon.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
@@ -48,6 +51,11 @@ const NAV_ITEMS: NavItem[] = [
             >
               <app-icon [name]="item.icon" [size]="18" />
               {{ item.label }}
+              @if (item.label === 'Orders' && pendingOrdersCount() > 0) {
+                <span class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-ember-500 px-1.5 text-[11px] font-bold text-white">
+                  {{ pendingOrdersCount() > 99 ? '99+' : pendingOrdersCount() }}
+                </span>
+              }
             </a>
           }
         </nav>
@@ -107,12 +115,17 @@ export class DeliveryShellComponent implements OnInit, OnDestroy {
 
   navItems = NAV_ITEMS;
   sidebarOpen = signal(false);
+  pendingOrdersCount = signal(0);
 
   private accountPollHandle?: ReturnType<typeof setInterval>;
+  private pendingCountPollHandle?: ReturnType<typeof setInterval>;
+  private pendingCountRefreshTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     public auth: DeliveryAuthService,
+    private deliveryService: DeliveryService,
     public notif: NotificationService,
+    private realtime: RealtimeService,
     public theme: ThemeService,
     private router: Router
   ) {
@@ -124,6 +137,24 @@ export class DeliveryShellComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.notif.init('delivery');
+    if (!this.auth.currentUser()?.isSuspended) {
+      this.refreshPendingOrdersCount();
+    }
+
+    // Rendered on every delivery page (not just the dashboard), so the
+    // "Orders" nav badge needs its own live refresh here rather than relying
+    // on the dashboard component's own listener. This covers a new
+    // assignment arriving instantly; it does NOT cover the partner resolving
+    // one themselves (accept/pickup/etc. only notify the customer/seller,
+    // not the partner) — the periodic poll below is what self-corrects the
+    // badge in that case.
+    this.realtime.on<AppNotification>('notification:new', (n) => {
+      if (!n.relatedOrder) return;
+      clearTimeout(this.pendingCountRefreshTimer);
+      this.pendingCountRefreshTimer = setTimeout(() => this.refreshPendingOrdersCount(), 400);
+    });
+    this.pendingCountPollHandle = setInterval(() => this.refreshPendingOrdersCount(), 20000);
+
     // While pending/rejected/suspended, an admin can change that status at
     // any moment from their own session — keep this tab's own account fresh
     // so the banner clears itself instead of needing a manual reload.
@@ -139,6 +170,16 @@ export class DeliveryShellComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.accountPollHandle) clearInterval(this.accountPollHandle);
+    if (this.pendingCountPollHandle) clearInterval(this.pendingCountPollHandle);
+  }
+
+  private async refreshPendingOrdersCount() {
+    try {
+      const stats = await this.deliveryService.getDashboardStats();
+      this.pendingOrdersCount.set(stats.pendingPickups);
+    } catch {
+      // silent — the badge just stays at its last known value
+    }
   }
 
   async logout() {

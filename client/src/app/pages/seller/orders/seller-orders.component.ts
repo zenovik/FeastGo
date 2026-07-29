@@ -3,6 +3,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Order, SellerOrderDetail } from '../../../core/models/order.model';
 import { OrderMessage } from '../../../core/models/message.model';
+import { ConfirmService } from '../../../core/services/confirm.service';
 import { SellerService } from '../../../core/services/seller.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { RealtimeService } from '../../../core/services/realtime.service';
@@ -10,6 +11,7 @@ import { ChatPanelComponent } from '../../../shared/components/chat-panel/chat-p
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SellerShellComponent } from '../../../shared/components/seller-shell/seller-shell.component';
 import { InrPipe } from '../../../shared/pipes/inr.pipe';
+import { cancelledByLabel, refundStatusClass, refundStatusLabel } from '../../../shared/utils/order-status';
 
 const NEXT_ACTION: Record<string, { label: string; status: string }[]> = {
   placed: [
@@ -19,6 +21,12 @@ const NEXT_ACTION: Record<string, { label: string; status: string }[]> = {
   confirmed: [{ label: 'Start preparing', status: 'preparing' }],
   preparing: [{ label: 'Ready for pickup', status: 'ready_for_pickup' }],
 };
+
+// Seller may cancel any time before the order has been picked up — i.e. from
+// acceptance through "ready for pickup" (placed is already covered by the
+// Reject quick-action above, which is effectively "cancel before accepting").
+const SELLER_CANCELLABLE_STATUSES = ['confirmed', 'preparing', 'ready_for_pickup'];
+const SELLER_CANCEL_REASONS = ['Item Out of Stock', 'Restaurant Closed', 'Kitchen Issue', 'Technical Issue', 'Unable to Prepare', 'Other'];
 
 const STATUS_OPTIONS = ['placed', 'confirmed', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'rejected', 'cancelled'];
 
@@ -105,7 +113,7 @@ const TIMELINE_STEPS = [
                 <app-icon [name]="expandedId() === order._id ? 'chevron_down' : 'chevron_right'" [size]="16" class="shrink-0 text-ink-400" />
               </div>
 
-              @if (actionsFor(order.status).length) {
+              @if (actionsFor(order.status).length || isSellerCancellable(order.status)) {
                 <div class="flex gap-2 px-4 pb-4">
                   @for (action of actionsFor(order.status); track action.status) {
                     <button
@@ -120,6 +128,11 @@ const TIMELINE_STEPS = [
                       (click)="updateStatus(order, action.status)"
                     >
                       {{ action.label }}
+                    </button>
+                  }
+                  @if (isSellerCancellable(order.status)) {
+                    <button type="button" class="rounded-lg border border-ember-500 px-3 py-1.5 text-xs font-bold text-ember-600" (click)="cancelOrder(order)">
+                      Cancel order
                     </button>
                   }
                 </div>
@@ -151,6 +164,20 @@ const TIMELINE_STEPS = [
                             </li>
                           }
                         </ol>
+                        @if (d.status === 'cancelled' || d.status === 'rejected') {
+                          <div class="mt-3 rounded-lg border border-ember-100 p-2.5 dark:border-ember-500/20">
+                            <p class="text-xs font-bold text-ember-700">{{ d.status === 'cancelled' ? 'Cancelled' : 'Rejected' }} by {{ cancelledByLabel(d.cancelledByRole) }}</p>
+                            @if (d.cancellationReason) {
+                              <p class="mt-0.5 text-xs text-ink-500 dark:text-ink-400">{{ d.cancellationReason }}</p>
+                            }
+                            @if (d.cancelledAt) {
+                              <p class="mt-0.5 text-xs text-ink-400">{{ d.cancelledAt | date: 'medium' }}</p>
+                            }
+                            @if (refundLabel(d); as label) {
+                              <span class="mt-1.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold" [class]="refundClass(d)">{{ label }}</span>
+                            }
+                          </div>
+                        }
                       </div>
 
                       <!-- Customer + delivery -->
@@ -173,8 +200,13 @@ const TIMELINE_STEPS = [
                                 <a [href]="'tel:' + d.deliveryPartner.phone" class="flex items-center gap-1 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-bold text-ink-700 dark:border-ink-700 dark:text-ink-200">
                                   <app-icon name="phone" [size]="13" /> Call
                                 </a>
-                                <button type="button" class="flex items-center gap-1 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-bold text-ink-700 dark:border-ink-700 dark:text-ink-200" (click)="openChat(d)">
+                                <button type="button" class="relative flex items-center gap-1 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs font-bold text-ink-700 dark:border-ink-700 dark:text-ink-200" (click)="openChat(d)">
                                   <app-icon name="mail" [size]="13" /> Chat
+                                  @if (unreadFor(d._id) > 0) {
+                                    <span class="absolute -right-1.5 -top-1.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white">
+                                      {{ unreadFor(d._id) > 9 ? '9+' : unreadFor(d._id) }}
+                                    </span>
+                                  }
                                 </button>
                               </div>
                             </div>
@@ -284,23 +316,40 @@ export class SellerOrdersComponent implements OnInit {
 
   chatOpen = signal(false);
   chatMessages = signal<OrderMessage[]>([]);
+  unreadByOrder = signal<Record<string, number>>({});
   private chatOrderId: string | null = null;
 
   private searchTimer?: ReturnType<typeof setTimeout>;
 
+  cancelledByLabel = cancelledByLabel;
+
   constructor(
     private sellerService: SellerService,
     private toast: ToastService,
-    private realtime: RealtimeService
+    private realtime: RealtimeService,
+    private confirmService: ConfirmService
   ) {}
 
   private refreshTimer?: ReturnType<typeof setTimeout>;
 
   async ngOnInit() {
     await this.fetch();
+    this.sellerService
+      .getUnreadMessageCount()
+      .then((res) => {
+        const byOrder: Record<string, number> = {};
+        for (const [orderId, threads] of Object.entries(res.byOrder)) {
+          if (threads['seller-delivery']) byOrder[orderId] = threads['seller-delivery'];
+        }
+        this.unreadByOrder.set(byOrder);
+      })
+      .catch(() => {});
     this.realtime.on<OrderMessage>('message:new', (m) => {
-      if (m.order === this.chatOrderId) {
+      if (m.thread !== 'seller-delivery') return;
+      if (m.order === this.chatOrderId && this.chatOpen()) {
         this.chatMessages.update((msgs) => [...msgs, m]);
+      } else {
+        this.unreadByOrder.update((map) => ({ ...map, [m.order]: (map[m.order] ?? 0) + 1 }));
       }
     });
     // Order-related notifications (new order, rider assigned/reached/picked up,
@@ -354,6 +403,39 @@ export class SellerOrdersComponent implements OnInit {
 
   isSelectable(status: string): boolean {
     return status in NEXT_ACTION;
+  }
+
+  isSellerCancellable(status: string): boolean {
+    return SELLER_CANCELLABLE_STATUSES.includes(status);
+  }
+
+  refundLabel(d: SellerOrderDetail): string {
+    return refundStatusLabel(d.refundStatus);
+  }
+
+  refundClass(d: SellerOrderDetail): string {
+    return refundStatusClass(d.refundStatus);
+  }
+
+  async cancelOrder(order: Order) {
+    const { confirmed, reason } = await this.confirmService.askWithReason({
+      title: 'Cancel Order?',
+      message: 'Are you sure you want to cancel this order? The customer will be notified immediately.',
+      confirmLabel: 'Cancel Order',
+      cancelLabel: 'Keep Order',
+      reasonLabel: 'Cancellation Reason',
+      reasons: SELLER_CANCEL_REASONS,
+    });
+    if (!confirmed || !reason) return;
+
+    try {
+      const res = await this.sellerService.cancelOrder(order._id, reason);
+      this.orders.update((orders) => orders.map((o) => (o._id === order._id ? res.order : o)));
+      if (this.expandedId() === order._id) await this.refreshExpandedDetail();
+      this.toast.success('Order cancelled');
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? 'Could not cancel order');
+    }
   }
 
   clearSelection() {
@@ -442,9 +524,14 @@ export class SellerOrdersComponent implements OnInit {
     }
   }
 
+  unreadFor(orderId: string): number {
+    return this.unreadByOrder()[orderId] ?? 0;
+  }
+
   async openChat(d: SellerOrderDetail) {
     this.chatOrderId = d._id;
     this.chatOpen.set(true);
+    this.unreadByOrder.update((map) => ({ ...map, [d._id]: 0 }));
     try {
       const { messages } = await this.sellerService.listMessages(d._id);
       this.chatMessages.set(messages);

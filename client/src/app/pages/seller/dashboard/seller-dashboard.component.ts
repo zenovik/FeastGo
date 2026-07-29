@@ -5,12 +5,20 @@ import { RouterLink } from '@angular/router';
 import { SellerAuthService } from '../../../core/services/seller-auth.service';
 import { DashboardStats, SellerService } from '../../../core/services/seller.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { RealtimeService } from '../../../core/services/realtime.service';
+import { AppNotification } from '../../../core/models/notification.model';
 import { Order } from '../../../core/models/order.model';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SellerShellComponent } from '../../../shared/components/seller-shell/seller-shell.component';
 import { MiniChartComponent } from '../../../shared/components/mini-chart/mini-chart.component';
 import { SellerProfileCardComponent } from '../../../shared/components/seller-profile-card/seller-profile-card.component';
 import { InrPipe } from '../../../shared/pipes/inr.pipe';
+
+interface NewOrderAlert {
+  id: string;
+  title: string;
+  message: string;
+}
 
 interface StatCard {
   label: string;
@@ -26,6 +34,27 @@ interface StatCard {
   imports: [FormsModule, RouterLink, DatePipe, IconComponent, SellerShellComponent, MiniChartComponent, SellerProfileCardComponent, InrPipe],
   template: `
     <app-seller-shell title="Dashboard">
+      @if (newOrderAlerts().length) {
+        <div class="mb-4 space-y-2">
+          @for (alert of newOrderAlerts(); track alert.id) {
+            <div class="new-order-alert card-surface flex items-center gap-3 border-2 border-ember-300 bg-ember-50 p-4 dark:border-ember-500/40 dark:bg-ember-500/10">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ember-500 text-white">
+                <app-icon name="bell" [size]="18" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-bold text-ink-900 dark:text-white">{{ alert.title }}</p>
+                <p class="truncate text-xs text-ink-600 dark:text-ink-300">{{ alert.message }}</p>
+              </div>
+              <a routerLink="/seller/orders" class="shrink-0 rounded-lg bg-ember-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-ember-600" (click)="dismissAlert(alert.id)">
+                View
+              </a>
+              <button type="button" class="shrink-0 text-ink-400 hover:text-ink-700" (click)="dismissAlert(alert.id)" aria-label="Dismiss">
+                <app-icon name="x" [size]="14" />
+              </button>
+            </div>
+          }
+        </div>
+      }
       @if (auth.currentUser(); as owner) {
         @if (owner.isSuspended) {
           <div class="card-surface mb-4 flex items-center gap-3 bg-ember-50 p-4">
@@ -178,6 +207,22 @@ interface StatCard {
       }
     </app-seller-shell>
   `,
+  styles: [
+    `
+      @keyframes newOrderPulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(230, 96, 40, 0.25);
+        }
+        50% {
+          box-shadow: 0 0 0 8px rgba(230, 96, 40, 0);
+        }
+      }
+      .new-order-alert {
+        animation: newOrderPulse 1.8s ease-in-out 3;
+      }
+    `,
+  ],
 })
 export class SellerDashboardComponent implements OnInit, OnDestroy {
   loading = signal(true);
@@ -185,15 +230,18 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
   submitting = signal(false);
   formError = signal<string | null>(null);
   stats = signal<DashboardStats | null>(null);
+  newOrderAlerts = signal<NewOrderAlert[]>([]);
 
   form = { name: '', coverImage: '', cuisines: '', line1: '', city: '' };
 
   private statusPollHandle?: ReturnType<typeof setInterval>;
+  private statsRefreshTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     public auth: SellerAuthService,
     public sellerService: SellerService,
-    private toast: ToastService
+    private toast: ToastService,
+    private realtime: RealtimeService
   ) {}
 
   get restaurant() {
@@ -226,10 +274,30 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
       await this.auth.refreshMe();
       await this.sellerService.refreshRestaurant();
     }, 15000);
+
+    // New orders (and any other order-related event — cancellations, rider
+    // pickup, etc.) land here in real time via the shell's already-open
+    // socket. A fresh 'new_order' gets its own top-of-dashboard banner (on
+    // top of the global toast/bell every notification already triggers);
+    // any relatedOrder event also refreshes the stats blob so the counts and
+    // "Recent orders" table stay live without a manual reload.
+    this.realtime.on<AppNotification>('notification:new', (n) => {
+      if (n.type === 'new_order') {
+        this.newOrderAlerts.update((list) => [{ id: n._id, title: n.title, message: n.message }, ...list].slice(0, 5));
+      }
+      if (n.relatedOrder) {
+        clearTimeout(this.statsRefreshTimer);
+        this.statsRefreshTimer = setTimeout(() => this.loadStats(), 400);
+      }
+    });
   }
 
   ngOnDestroy() {
     if (this.statusPollHandle) clearInterval(this.statusPollHandle);
+  }
+
+  dismissAlert(id: string) {
+    this.newOrderAlerts.update((list) => list.filter((a) => a.id !== id));
   }
 
   private async loadStats() {

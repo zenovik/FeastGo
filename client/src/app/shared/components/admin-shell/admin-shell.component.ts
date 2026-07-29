@@ -1,10 +1,20 @@
 import { Component, Input, OnDestroy, OnInit, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AdminAuthService } from '../../../core/services/admin-auth.service';
+import { AdminService } from '../../../core/services/admin.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { RealtimeService } from '../../../core/services/realtime.service';
+import { AppNotification } from '../../../core/models/notification.model';
 import { ThemeService } from '../../../core/services/theme.service';
 import { IconComponent } from '../icon/icon.component';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
+
+// Exact title sent by sellerController's reportDeliveryIssue — 'user_report'
+// is a shared notification type reused for several unrelated events (blocked
+// login attempts, a partner flagged for excessive rejections, etc.), so
+// matching on the precise title is what actually isolates "a seller reported
+// a delivery issue" from the rest.
+const DELIVERY_ISSUE_TITLE = 'Delivery issue reported';
 
 interface NavItem {
   path: string;
@@ -96,6 +106,11 @@ const NAV_GROUPS: NavGroup[] = [
                 >
                   <app-icon [name]="item.icon" [size]="18" />
                   {{ item.label }}
+                  @if (item.label === 'Orders' && openIssuesCount() > 0) {
+                    <span class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-ember-500 px-1.5 text-[11px] font-bold text-white">
+                      {{ openIssuesCount() > 99 ? '99+' : openIssuesCount() }}
+                    </span>
+                  }
                 </a>
               }
             </div>
@@ -157,19 +172,48 @@ export class AdminShellComponent implements OnInit, OnDestroy {
 
   navGroups = NAV_GROUPS;
   sidebarOpen = signal(false);
+  openIssuesCount = signal(0);
+
+  private pendingCountRefreshTimer?: ReturnType<typeof setTimeout>;
+  private pendingCountPollHandle?: ReturnType<typeof setInterval>;
 
   constructor(
     public auth: AdminAuthService,
+    private adminService: AdminService,
     public notif: NotificationService,
+    private realtime: RealtimeService,
     public theme: ThemeService,
     private router: Router
   ) {}
 
   ngOnInit() {
     this.notif.init('admin');
+    this.refreshOpenIssuesCount();
+
+    // Rendered on every admin page (not just the dashboard), so the "Orders"
+    // nav badge needs its own live refresh here. Resolving a report is the
+    // admin's OWN action and doesn't notify themselves, so the periodic poll
+    // is what clears the badge again after that.
+    this.realtime.on<AppNotification>('notification:new', (n) => {
+      if (n.title !== DELIVERY_ISSUE_TITLE) return;
+      clearTimeout(this.pendingCountRefreshTimer);
+      this.pendingCountRefreshTimer = setTimeout(() => this.refreshOpenIssuesCount(), 400);
+    });
+    this.pendingCountPollHandle = setInterval(() => this.refreshOpenIssuesCount(), 20000);
   }
 
-  ngOnDestroy() {}
+  ngOnDestroy() {
+    if (this.pendingCountPollHandle) clearInterval(this.pendingCountPollHandle);
+  }
+
+  private async refreshOpenIssuesCount() {
+    try {
+      const res = await this.adminService.listDeliveryIssues('open');
+      this.openIssuesCount.set(res.issues.length);
+    } catch {
+      // silent — the badge just stays at its last known value
+    }
+  }
 
   async logout() {
     await this.auth.logout();

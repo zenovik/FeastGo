@@ -20,6 +20,9 @@ const couponSchema = new mongoose.Schema(
     // Combo: bundle of menu items at a fixed price.
     comboItems: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'MenuItem' }], default: [] },
     comboPrice: { type: Number, default: null },
+    // Scopes a discount/bogo/flash offer to specific menu items instead of the
+    // whole order — empty means restaurant/order-wide (existing behavior).
+    applicableItems: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'MenuItem' }], default: [] },
   },
   { timestamps: true }
 );

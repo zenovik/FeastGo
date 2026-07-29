@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { API_URL } from '../config';
+import { getStoredToken } from '../utils/token-storage';
 
 export type NotifRole = 'customer' | 'seller' | 'delivery' | 'admin';
 
@@ -23,7 +24,12 @@ export class RealtimeService {
   private connectedRole: NotifRole | null = null;
 
   connect(role: NotifRole): Socket | null {
-    const token = localStorage.getItem(TOKEN_KEY_BY_ROLE[role]);
+    // Seller/delivery/admin logins are session-scoped by design (sessionStorage,
+    // no "remember me" choice) — a raw localStorage.getItem here would never
+    // find their token and the socket would silently never connect, so this
+    // must check both storages the same way every other token read in the
+    // app does.
+    const token = getStoredToken(TOKEN_KEY_BY_ROLE[role]);
     if (!token) return null;
     if (this.socket && this.connectedRole === role) return this.socket;
 

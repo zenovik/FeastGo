@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
 import { DeliveryOrderDetail, Order } from '../models/order.model';
-import { OrderMessage } from '../models/message.model';
+import { OrderMessage, UnreadMessageCounts } from '../models/message.model';
 
 export interface DeliveryDashboardStats {
   todayDeliveries: number;
@@ -106,5 +106,9 @@ export class DeliveryService {
 
   sendMessage(orderId: string, withRole: 'customer' | 'seller', text: string) {
     return firstValueFrom(this.http.post<{ message: OrderMessage }>(`${API_URL}/delivery/orders/${orderId}/messages`, { text }, { params: { with: withRole } }));
+  }
+
+  getUnreadMessageCount() {
+    return firstValueFrom(this.http.get<UnreadMessageCounts>(`${API_URL}/delivery/messages/unread-count`));
   }
 }

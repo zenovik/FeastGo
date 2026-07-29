@@ -1,7 +1,10 @@
 import { Component, Input, OnDestroy, OnInit, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { SellerAuthService } from '../../../core/services/seller-auth.service';
+import { SellerService } from '../../../core/services/seller.service';
 import { NotificationService } from '../../../core/services/notification.service';
+import { RealtimeService } from '../../../core/services/realtime.service';
+import { AppNotification } from '../../../core/models/notification.model';
 import { ThemeService } from '../../../core/services/theme.service';
 import { Restaurant } from '../../../core/models/restaurant.model';
 import { IconComponent } from '../icon/icon.component';
@@ -51,6 +54,11 @@ const NAV_ITEMS: NavItem[] = [
             >
               <app-icon [name]="item.icon" [size]="18" />
               {{ item.label }}
+              @if (item.label === 'Orders' && pendingOrdersCount() > 0) {
+                <span class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-ember-500 px-1.5 text-[11px] font-bold text-white">
+                  {{ pendingOrdersCount() > 99 ? '99+' : pendingOrdersCount() }}
+                </span>
+              }
             </a>
           }
         </nav>
@@ -111,12 +119,17 @@ export class SellerShellComponent implements OnInit, OnDestroy {
   navItems = NAV_ITEMS;
   sidebarOpen = signal(false);
   restaurant = signal<Restaurant | null>(null);
+  pendingOrdersCount = signal(0);
 
   private accountPollHandle?: ReturnType<typeof setInterval>;
+  private pendingCountPollHandle?: ReturnType<typeof setInterval>;
+  private pendingCountRefreshTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     public auth: SellerAuthService,
+    private sellerService: SellerService,
     public notif: NotificationService,
+    private realtime: RealtimeService,
     public theme: ThemeService,
     private router: Router
   ) {}
@@ -125,7 +138,21 @@ export class SellerShellComponent implements OnInit, OnDestroy {
     this.notif.init('seller');
     if (!this.auth.currentUser()?.isSuspended) {
       this.refreshRestaurant();
+      this.refreshPendingOrdersCount();
     }
+
+    // Rendered on every seller page (not just the dashboard), so the "Orders"
+    // nav badge needs its own live refresh here rather than relying on the
+    // dashboard component's own listener. This covers a new order arriving
+    // instantly; it does NOT cover the seller resolving one themselves (that
+    // only notifies the customer, not the seller) — the periodic poll below
+    // is what self-corrects the badge in that case.
+    this.realtime.on<AppNotification>('notification:new', (n) => {
+      if (!n.relatedOrder) return;
+      clearTimeout(this.pendingCountRefreshTimer);
+      this.pendingCountRefreshTimer = setTimeout(() => this.refreshPendingOrdersCount(), 400);
+    });
+    this.pendingCountPollHandle = setInterval(() => this.refreshPendingOrdersCount(), 20000);
 
     // While pending/rejected/suspended (owner) or the restaurant is still
     // awaiting review, an admin can change that from their own session at any
@@ -153,8 +180,18 @@ export class SellerShellComponent implements OnInit, OnDestroy {
     }
   }
 
+  private async refreshPendingOrdersCount() {
+    try {
+      const stats = await this.sellerService.getDashboardStats();
+      this.pendingOrdersCount.set(stats.pendingOrders);
+    } catch {
+      // silent — the badge just stays at its last known value
+    }
+  }
+
   ngOnDestroy() {
     if (this.accountPollHandle) clearInterval(this.accountPollHandle);
+    if (this.pendingCountPollHandle) clearInterval(this.pendingCountPollHandle);
   }
 
   async logout() {

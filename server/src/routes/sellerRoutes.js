@@ -3,7 +3,7 @@ import * as sellerAuth from '../controllers/sellerAuthController.js';
 import * as seller from '../controllers/sellerController.js';
 import * as analytics from '../controllers/sellerAnalyticsController.js';
 import * as notifications from '../controllers/notificationController.js';
-import { listSellerMessages, sendSellerMessage } from '../controllers/messageController.js';
+import { listSellerMessages, sendSellerMessage, getSellerUnreadMessageCount } from '../controllers/messageController.js';
 import { requireRole } from '../middleware/rbac.js';
 
 const router = Router();
@@ -36,9 +36,11 @@ router.get('/orders/:id', requireRole('seller'), seller.getOrderDetail);
 router.patch('/orders/:id/status', requireRole('seller'), seller.updateOrderStatus);
 router.patch('/orders/:id/notes', requireRole('seller'), seller.updateOrderNotes);
 router.post('/orders/bulk-status', requireRole('seller'), seller.bulkUpdateOrderStatus);
+router.post('/orders/:id/cancel', requireRole('seller'), seller.cancelOrderSeller);
 router.get('/orders/:id/messages', requireRole('seller'), listSellerMessages);
 router.post('/orders/:id/messages', requireRole('seller'), sendSellerMessage);
 router.post('/orders/:id/report-issue', requireRole('seller'), seller.reportDeliveryIssue);
+router.get('/messages/unread-count', requireRole('seller'), getSellerUnreadMessageCount);
 
 // Coupons
 router.get('/coupons', requireRole('seller'), seller.listMyCoupons);

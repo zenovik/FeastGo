@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as deliveryAuth from '../controllers/deliveryAuthController.js';
 import * as delivery from '../controllers/deliveryController.js';
 import * as notifications from '../controllers/notificationController.js';
-import { listDeliveryMessages, sendDeliveryMessage } from '../controllers/messageController.js';
+import { listDeliveryMessages, sendDeliveryMessage, getDeliveryUnreadMessageCount } from '../controllers/messageController.js';
 import { requireRole } from '../middleware/rbac.js';
 
 const router = Router();
@@ -37,6 +37,7 @@ router.post('/orders/:id/reject', requireRole('delivery'), delivery.rejectOrder)
 router.patch('/orders/:id/status', requireRole('delivery'), delivery.updateDeliveryStatus);
 router.get('/orders/:id/messages', requireRole('delivery'), listDeliveryMessages);
 router.post('/orders/:id/messages', requireRole('delivery'), sendDeliveryMessage);
+router.get('/messages/unread-count', requireRole('delivery'), getDeliveryUnreadMessageCount);
 
 // Location
 router.patch('/location', requireRole('delivery'), delivery.updateLocation);

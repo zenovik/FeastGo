@@ -335,7 +335,9 @@ export async function updateDeliveryStatus(req, res, next) {
     }
 
     if (status === 'cancelled') {
-      order.deliveryFailReason = reason || '';
+      const trimmedReason = String(reason ?? '').trim();
+      if (!trimmedReason) throw new ApiError(400, 'A cancellation reason is required');
+      order.deliveryFailReason = trimmedReason;
       req.user.currentOrder = null;
       await req.user.save();
       await DeliveryAssignment.updateMany({ order: order._id, partner: req.user._id }, { status: 'cancelled' });

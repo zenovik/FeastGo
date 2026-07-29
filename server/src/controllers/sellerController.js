@@ -4,9 +4,16 @@ import Order, { ORDER_STATUSES } from '../models/Order.js';
 import Coupon from '../models/Coupon.js';
 import Review from '../models/Review.js';
 import DeliveryIssue from '../models/DeliveryIssue.js';
+import DeliveryPartner from '../models/DeliveryPartner.js';
+import DeliveryAssignment from '../models/DeliveryAssignment.js';
 import { ApiError } from '../utils/ApiError.js';
-import { notifyCustomerOrderStatus, notifySellerAccount, notifyAdmins } from '../utils/notify.js';
+import { notifyCustomerOrderStatus, notifySellerAccount, notifyAdmins, notifyOrderCancellation } from '../utils/notify.js';
 import { autoAssignDeliveryPartner } from '../utils/deliveryAssign.js';
+
+// Seller may cancel any time before the order has been picked up by a
+// delivery partner — after that the order belongs to the delivery/customer
+// side of the flow and only admin can step in.
+const SELLER_CANCELLABLE_STATUSES = ['placed', 'confirmed', 'preparing', 'ready_for_pickup'];
 
 function requireOwnRestaurant(req) {
   if (!req.user.restaurant) throw new ApiError(400, 'Register a restaurant first');
@@ -135,12 +142,20 @@ function assertValidPrice(price) {
   if (n > 100000) throw new ApiError(400, 'Price is unrealistically high');
 }
 
+async function assertUniqueName(restaurantId, name, excludeId) {
+  const filter = { restaurant: restaurantId, name: new RegExp(`^${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+  if (excludeId) filter._id = { $ne: excludeId };
+  const existing = await MenuItem.findOne(filter);
+  if (existing) throw new ApiError(409, 'You already have a menu item with this name');
+}
+
 export async function createMenuItem(req, res, next) {
   try {
     const restaurantId = requireOwnRestaurant(req);
     const { name, price, category } = req.body;
     if (!name || price == null || !category) throw new ApiError(400, 'Name, price and category are required');
     assertValidPrice(price);
+    await assertUniqueName(restaurantId, name);
 
     const payload = { restaurant: restaurantId, name, price, category, isVeg: req.body.isVeg !== false };
     for (const field of MENU_ITEM_CREATE_FIELDS) {
@@ -161,6 +176,9 @@ export async function updateMenuItem(req, res, next) {
     const item = await MenuItem.findOne({ _id: req.params.id, restaurant: restaurantId });
     if (!item) throw new ApiError(404, 'Menu item not found');
     if (req.body.price !== undefined) assertValidPrice(req.body.price);
+    if (req.body.name !== undefined && req.body.name.trim() !== item.name) {
+      await assertUniqueName(restaurantId, req.body.name, item._id);
+    }
 
     for (const field of MENU_ITEM_UPDATE_FIELDS) {
       if (req.body[field] !== undefined) item[field] = req.body[field];
@@ -194,7 +212,16 @@ export async function duplicateMenuItem(req, res, next) {
     delete source._id;
     delete source.createdAt;
     delete source.updatedAt;
-    const copy = await MenuItem.create({ ...source, name: `${source.name} (Copy)` });
+
+    // Keep duplicating the same item collision-free: "X (Copy)", "X (Copy 2)", "X (Copy 3)"...
+    let name = `${source.name} (Copy)`;
+    let suffix = 2;
+    while (await MenuItem.findOne({ restaurant: restaurantId, name })) {
+      name = `${source.name} (Copy ${suffix})`;
+      suffix += 1;
+    }
+
+    const copy = await MenuItem.create({ ...source, name });
     res.status(201).json({ item: copy });
   } catch (err) {
     next(err);
@@ -327,6 +354,55 @@ export async function bulkUpdateOrderStatus(req, res, next) {
   }
 }
 
+export async function cancelOrderSeller(req, res, next) {
+  try {
+    const restaurantId = requireOwnRestaurant(req);
+    const reason = String(req.body.reason ?? '').trim();
+    if (!reason) throw new ApiError(400, 'A cancellation reason is required');
+
+    const order = await Order.findOne({ _id: req.params.id, restaurant: restaurantId });
+    if (!order) throw new ApiError(404, 'Order not found');
+    if (order.status === 'cancelled') throw new ApiError(400, 'This order has already been cancelled');
+    if (!SELLER_CANCELLABLE_STATUSES.includes(order.status)) {
+      throw new ApiError(
+        400,
+        ['out_for_delivery', 'delivered'].includes(order.status)
+          ? 'This order has already been picked up and can no longer be cancelled'
+          : `Order already ${order.status}`
+      );
+    }
+
+    const previousStatus = order.status;
+    order.status = 'cancelled';
+    order.statusHistory.push({ status: 'cancelled', at: new Date() });
+    order.cancelledBy = req.user._id;
+    order.cancelledByRole = 'seller';
+    order.cancellationReason = reason;
+    order.cancelledAt = new Date();
+    order.cancelledFromStatus = previousStatus;
+    if (order.paymentMethod !== 'cod') {
+      order.refundStatus = 'requested';
+      order.refundAmount = order.total;
+    }
+
+    let freedPartnerId = null;
+    if (order.deliveryPartner) {
+      freedPartnerId = order.deliveryPartner;
+      await DeliveryAssignment.updateMany({ order: order._id, partner: order.deliveryPartner }, { status: 'cancelled' });
+      await DeliveryPartner.updateOne({ _id: order.deliveryPartner, currentOrder: order._id }, { currentOrder: null });
+      order.deliveryPartner = null;
+      order.deliveryStatus = 'cancelled';
+      order.deliveryStatusHistory.push({ status: 'cancelled' });
+    }
+    await order.save();
+
+    await notifyOrderCancellation(order, { cancelledByRole: 'seller', reason, deliveryPartnerId: freedPartnerId });
+    res.json({ order });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function updateOrderNotes(req, res, next) {
   try {
     const restaurantId = requireOwnRestaurant(req);
@@ -398,6 +474,7 @@ const COUPON_FIELDS = [
   'getQty',
   'comboItems',
   'comboPrice',
+  'applicableItems',
 ];
 
 export async function createMyCoupon(req, res, next) {

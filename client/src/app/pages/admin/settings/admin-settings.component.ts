@@ -68,6 +68,11 @@ type Tab = 'general' | 'commerce' | 'payment' | 'email' | 'sms';
               Rejections before a partner is flagged for review
               <input type="number" min="1" [(ngModel)]="f.maxRejectionsBeforeFlag" name="maxRejectionsBeforeFlag" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
             </label>
+            <p class="pt-2 text-xs font-bold uppercase tracking-wide text-ink-400">Order cancellation</p>
+            <label class="block text-xs font-semibold text-ink-500">
+              Customer cancellation grace period after restaurant accepts (minutes)
+              <input type="number" min="0" [(ngModel)]="f.cancellationGraceMinutes" name="cancellationGraceMinutes" class="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm dark:border-ink-700 dark:bg-ink-900 dark:text-white" />
+            </label>
           }
 
           @if (tab() === 'payment') {

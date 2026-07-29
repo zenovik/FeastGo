@@ -1,19 +1,24 @@
+import { DatePipe } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Order, OrderStatus } from '../../../core/models/order.model';
 import { DeliveryAccount } from '../../../core/models/role-account.model';
 import { AdminService } from '../../../core/services/admin.service';
+import { ConfirmService } from '../../../core/services/confirm.service';
 import { RealtimeService } from '../../../core/services/realtime.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { AdminShellComponent } from '../../../shared/components/admin-shell/admin-shell.component';
 import { InrPipe } from '../../../shared/pipes/inr.pipe';
+import { cancelledByLabel, refundStatusClass, refundStatusLabel } from '../../../shared/utils/order-status';
 
 const STATUSES: OrderStatus[] = ['placed', 'confirmed', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'rejected', 'cancelled', 'failed', 'returned'];
+
+const ADMIN_CANCEL_REASONS = ['Customer request', 'Restaurant request', 'Fraud suspected', 'Operational issue', 'Other'];
 
 @Component({
   selector: 'app-admin-orders',
   standalone: true,
-  imports: [AdminShellComponent, InrPipe, FormsModule],
+  imports: [AdminShellComponent, InrPipe, FormsModule, DatePipe],
   template: `
     <app-admin-shell title="Orders">
       <div class="card-surface p-3.5">
@@ -162,6 +167,22 @@ const STATUSES: OrderStatus[] = ['placed', 'confirmed', 'preparing', 'ready_for_
                         · Delivery status: <span class="font-semibold capitalize">{{ order.deliveryStatus.replaceAll('_', ' ') }}</span>
                       }
                     </p>
+                    @if (order.status === 'cancelled' || order.status === 'rejected') {
+                      <div class="mt-2 rounded-lg border border-ember-100 p-2.5 text-xs dark:border-ember-500/20">
+                        <p class="font-bold text-ember-700">
+                          {{ order.status === 'cancelled' ? 'Cancelled' : 'Rejected' }} by {{ cancelledByLabel(order.cancelledByRole) }}
+                        </p>
+                        @if (order.cancellationReason) {
+                          <p class="mt-0.5 text-ink-500 dark:text-ink-400">Reason: {{ order.cancellationReason }}</p>
+                        }
+                        @if (order.cancelledAt) {
+                          <p class="mt-0.5 text-ink-400">{{ order.cancelledAt | date: 'medium' }}</p>
+                        }
+                        @if (refundLabel(order); as label) {
+                          <span class="mt-1.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold" [class]="refundClass(order)">{{ label }}</span>
+                        }
+                      </div>
+                    }
                   </td>
                 </tr>
               }
@@ -189,11 +210,13 @@ export class AdminOrdersComponent implements OnInit {
 
   private fetchTimer?: ReturnType<typeof setTimeout>;
   private refreshTimer?: ReturnType<typeof setTimeout>;
+  cancelledByLabel = cancelledByLabel;
 
   constructor(
     private adminService: AdminService,
     private toast: ToastService,
-    private realtime: RealtimeService
+    private realtime: RealtimeService,
+    private confirmService: ConfirmService
   ) {}
 
   async ngOnInit() {
@@ -275,10 +298,32 @@ export class AdminOrdersComponent implements OnInit {
     this.toast.success('Order status updated');
   }
 
+  refundLabel(order: Order): string {
+    return refundStatusLabel(order.refundStatus);
+  }
+
+  refundClass(order: Order): string {
+    return refundStatusClass(order.refundStatus);
+  }
+
   async cancelOrder(order: Order) {
-    const res = await this.adminService.cancelOrder(order._id);
-    this.orders.update((list) => list.map((o) => (o._id === order._id ? res.order : o)));
-    this.toast.success('Order cancelled');
+    const { confirmed, reason } = await this.confirmService.askWithReason({
+      title: 'Cancel Order?',
+      message: 'Are you sure you want to cancel this order? The customer, restaurant and delivery partner will all be notified.',
+      confirmLabel: 'Cancel Order',
+      cancelLabel: 'Keep Order',
+      reasonLabel: 'Cancellation Reason',
+      reasons: ADMIN_CANCEL_REASONS,
+    });
+    if (!confirmed || !reason) return;
+
+    try {
+      const res = await this.adminService.cancelOrder(order._id, reason);
+      this.orders.update((list) => list.map((o) => (o._id === order._id ? res.order : o)));
+      this.toast.success('Order cancelled');
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? 'Could not cancel order');
+    }
   }
 
   async assign(order: Order, partnerId: string) {

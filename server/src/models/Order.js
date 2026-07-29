@@ -89,6 +89,17 @@ const orderSchema = new mongoose.Schema(
     refundAmount: { type: Number, default: 0 },
     refundReason: { type: String, default: '' },
 
+    // Cancellation audit trail — an order is only ever cancelled once, so these
+    // live directly on the order rather than in a separate log collection.
+    // `cancelledFromStatus` is the status the order was in the moment it was
+    // cancelled (distinct from the 'cancelled' entry pushed onto statusHistory),
+    // so "previous status" is always available without diffing history.
+    cancelledBy: { type: mongoose.Schema.Types.ObjectId, default: null },
+    cancelledByRole: { type: String, enum: ['customer', 'seller', 'delivery', 'admin', 'system', null], default: null },
+    cancellationReason: { type: String, default: '' },
+    cancelledAt: { type: Date, default: null },
+    cancelledFromStatus: { type: String, enum: [...ORDER_STATUSES, null], default: null },
+
     tip: { type: Number, default: 0 },
 
     deliveryStatus: { type: String, enum: DELIVERY_STATUSES, default: 'pending' },
