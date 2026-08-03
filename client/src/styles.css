@@ -94,6 +94,14 @@
     @apply mx-auto w-full px-4 sm:px-6 lg:px-8;
   }
 
+  /* Shared card treatment for the standalone auth screens (customer/seller/
+     delivery/admin login + forgot-password) — a darker border and translucent,
+     blurred fill so the illustrated background reads through the edges instead
+     of a flat opaque card sitting on top of it. */
+  .auth-card {
+    @apply rounded-2xl border-2 border-ink-900/80 bg-white/80 shadow-[var(--shadow-pop)] backdrop-blur-md;
+  }
+
   .scrollbar-none {
     scrollbar-width: none;
     -ms-overflow-style: none;

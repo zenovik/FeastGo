@@ -41,9 +41,9 @@ export class AdminAuthService {
     }
   }
 
-  async login(email: string, password: string) {
+  async login(identifier: string, password: string) {
     const res = await firstValueFrom(
-      this.http.post<AdminAuthResponse>(`${API_URL}/admin/auth/login`, { email, password })
+      this.http.post<AdminAuthResponse>(`${API_URL}/admin/auth/login`, { identifier, password })
     );
     // Session-scoped (not "remembered") — admin has no remember-me choice, and
     // a shared localStorage entry would leak this login into every other tab,
@@ -52,6 +52,18 @@ export class AdminAuthService {
     setStoredToken(TOKEN_KEY, res.token, false);
     this.currentUserSig.set(res.user);
     return res.user;
+  }
+
+  async requestPasswordReset(identifier: string) {
+    return firstValueFrom(
+      this.http.post<{ message: string; devOtp?: string }>(`${API_URL}/admin/auth/request-password-reset`, { identifier })
+    );
+  }
+
+  async resetPassword(identifier: string, code: string, newPassword: string) {
+    return firstValueFrom(
+      this.http.post<{ message: string }>(`${API_URL}/admin/auth/reset-password`, { identifier, code, newPassword })
+    );
   }
 
   async logout() {

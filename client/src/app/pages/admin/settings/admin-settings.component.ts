@@ -3,14 +3,16 @@ import { FormsModule } from '@angular/forms';
 import { SystemSettings } from '../../../core/models/system-settings.model';
 import { AdminService } from '../../../core/services/admin.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ThemeService, ThemeMode } from '../../../core/services/theme.service';
+import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { AdminShellComponent } from '../../../shared/components/admin-shell/admin-shell.component';
 
-type Tab = 'general' | 'commerce' | 'payment' | 'email' | 'sms';
+type Tab = 'general' | 'commerce' | 'payment' | 'email' | 'sms' | 'appearance';
 
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [AdminShellComponent, FormsModule],
+  imports: [AdminShellComponent, FormsModule, IconComponent],
   template: `
     <app-admin-shell title="Settings">
       @if (form(); as f) {
@@ -31,6 +33,22 @@ type Tab = 'general' | 'commerce' | 'payment' | 'email' | 'sms';
           }
         </div>
 
+        @if (tab() === 'appearance') {
+          <div class="card-surface mt-4 max-w-xl p-4">
+            <h2 class="font-display text-sm font-bold text-ink-900 dark:text-white">Appearance</h2>
+            <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Choose how the Admin Panel looks on this device.</p>
+            <div class="mt-4 grid max-w-xs grid-cols-2 gap-2">
+              <button type="button" class="flex flex-col items-center gap-1.5 rounded-lg border p-3" [class.border-ember-500]="theme.mode() === 'light'" [class.border-ink-200]="theme.mode() !== 'light'" [class.dark:border-ink-700]="theme.mode() !== 'light'" (click)="setTheme('light')">
+                <app-icon name="sun" [size]="20" [class]="theme.mode() === 'light' ? 'text-ember-600' : 'text-ink-400'" />
+                <span class="text-xs font-bold" [class.text-ember-600]="theme.mode() === 'light'">Light Mode</span>
+              </button>
+              <button type="button" class="flex flex-col items-center gap-1.5 rounded-lg border p-3" [class.border-ember-500]="theme.mode() === 'dark'" [class.border-ink-200]="theme.mode() !== 'dark'" [class.dark:border-ink-700]="theme.mode() !== 'dark'" (click)="setTheme('dark')">
+                <app-icon name="moon" [size]="20" [class]="theme.mode() === 'dark' ? 'text-ember-600' : 'text-ink-400'" />
+                <span class="text-xs font-bold" [class.text-ember-600]="theme.mode() === 'dark'">Dark Mode</span>
+              </button>
+            </div>
+          </div>
+        } @else {
         <form class="card-surface mt-4 max-w-xl space-y-3 p-4" (submit)="save($event)">
           @if (tab() === 'general') {
             <label class="block text-xs font-semibold text-ink-500">
@@ -134,6 +152,7 @@ type Tab = 'general' | 'commerce' | 'payment' | 'email' | 'sms';
             {{ saving() ? 'Saving…' : 'Save settings' }}
           </button>
         </form>
+        }
       }
     </app-admin-shell>
   `,
@@ -146,6 +165,7 @@ export class AdminSettingsComponent implements OnInit {
     { id: 'payment', label: 'Payment gateway' },
     { id: 'email', label: 'Email' },
     { id: 'sms', label: 'SMS' },
+    { id: 'appearance', label: 'Appearance' },
   ];
 
   form = signal<SystemSettings | null>(null);
@@ -153,8 +173,13 @@ export class AdminSettingsComponent implements OnInit {
 
   constructor(
     private adminService: AdminService,
-    private toast: ToastService
+    private toast: ToastService,
+    public theme: ThemeService
   ) {}
+
+  setTheme(mode: ThemeMode) {
+    this.theme.setMode(mode);
+  }
 
   async ngOnInit() {
     const res = await this.adminService.getSettings();

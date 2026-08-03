@@ -147,15 +147,6 @@ const NAV_GROUPS: NavGroup[] = [
           </div>
 
           <div class="ml-auto flex items-center gap-1.5 sm:gap-2">
-            <button
-              type="button"
-              class="rounded-lg p-2 text-ink-500 hover:bg-ink-50 dark:text-ink-300 dark:hover:bg-ink-700"
-              (click)="theme.toggle()"
-              [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
-            >
-              <app-icon [name]="theme.dark() ? 'sun' : 'moon'" [size]="18" />
-            </button>
-
             <app-notification-bell role="admin" [dark]="theme.dark()" [iconSize]="18" />
           </div>
         </header>

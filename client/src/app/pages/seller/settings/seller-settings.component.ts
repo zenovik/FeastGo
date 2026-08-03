@@ -3,12 +3,13 @@ import { FormsModule } from '@angular/forms';
 import { SellerAuthService } from '../../../core/services/seller-auth.service';
 import { SellerService } from '../../../core/services/seller.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ThemeService, ThemeMode } from '../../../core/services/theme.service';
 import { Restaurant } from '../../../core/models/restaurant.model';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { ImageUploadComponent } from '../../../shared/components/image-upload/image-upload.component';
 import { SellerShellComponent } from '../../../shared/components/seller-shell/seller-shell.component';
 
-type Tab = 'profile' | 'hours' | 'bank' | 'notifications' | 'security';
+type Tab = 'profile' | 'hours' | 'bank' | 'notifications' | 'appearance' | 'security';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -209,6 +210,23 @@ function defaultBusinessHours() {
             </div>
           }
 
+          @if (activeTab() === 'appearance') {
+            <div>
+              <h2 class="font-display text-sm font-bold text-ink-900 dark:text-white">Appearance</h2>
+              <p class="mt-1 text-xs text-ink-500 dark:text-ink-400">Choose how the Seller Panel looks on this device.</p>
+              <div class="mt-4 grid max-w-xs grid-cols-2 gap-2">
+                <button type="button" class="flex flex-col items-center gap-1.5 rounded-lg border p-3" [class.border-ember-500]="theme.mode() === 'light'" [class.border-ink-200]="theme.mode() !== 'light'" [class.dark:border-ink-700]="theme.mode() !== 'light'" (click)="setTheme('light')">
+                  <app-icon name="sun" [size]="20" [class]="theme.mode() === 'light' ? 'text-ember-600' : 'text-ink-400'" />
+                  <span class="text-xs font-bold" [class.text-ember-600]="theme.mode() === 'light'">Light Mode</span>
+                </button>
+                <button type="button" class="flex flex-col items-center gap-1.5 rounded-lg border p-3" [class.border-ember-500]="theme.mode() === 'dark'" [class.border-ink-200]="theme.mode() !== 'dark'" [class.dark:border-ink-700]="theme.mode() !== 'dark'" (click)="setTheme('dark')">
+                  <app-icon name="moon" [size]="20" [class]="theme.mode() === 'dark' ? 'text-ember-600' : 'text-ink-400'" />
+                  <span class="text-xs font-bold" [class.text-ember-600]="theme.mode() === 'dark'">Dark Mode</span>
+                </button>
+              </div>
+            </div>
+          }
+
           @if (activeTab() === 'security') {
             <form class="max-w-sm space-y-3" (submit)="onChangePassword($event)">
               <input type="password" [(ngModel)]="passwordForm.currentPassword" name="currentPassword" required placeholder="Current password" class="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm outline-none dark:border-ink-700 dark:bg-ink-900" />
@@ -235,6 +253,7 @@ export class SellerSettingsComponent implements OnInit {
     { id: 'hours', label: 'Hours & Holidays' },
     { id: 'bank', label: 'Bank & GST' },
     { id: 'notifications', label: 'Notifications' },
+    { id: 'appearance', label: 'Appearance' },
     { id: 'security', label: 'Security' },
   ];
 
@@ -263,8 +282,13 @@ export class SellerSettingsComponent implements OnInit {
   constructor(
     private auth: SellerAuthService,
     public sellerService: SellerService,
-    public toast: ToastService
+    public toast: ToastService,
+    public theme: ThemeService
   ) {}
+
+  setTheme(mode: ThemeMode) {
+    this.theme.setMode(mode);
+  }
 
   get restaurant() {
     return this.sellerService.restaurant;

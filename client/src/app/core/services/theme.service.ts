@@ -25,7 +25,7 @@ export class ThemeService {
 
   private readStoredMode(): ThemeMode {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === 'dark' || stored === 'light' || stored === 'system' ? stored : 'system';
+    return stored === 'dark' || stored === 'light' || stored === 'system' ? stored : 'light';
   }
 
   setMode(mode: ThemeMode) {

@@ -86,9 +86,9 @@ export class DeliveryAuthService {
     return res.user;
   }
 
-  async login(email: string, password: string) {
+  async login(identifier: string, password: string) {
     const res = await firstValueFrom(
-      this.http.post<DeliveryAuthResponse>(`${API_URL}/delivery/auth/login`, { email, password })
+      this.http.post<DeliveryAuthResponse>(`${API_URL}/delivery/auth/login`, { identifier, password })
     );
     this.persist(res);
     return res.user;

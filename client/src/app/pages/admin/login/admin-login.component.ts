@@ -1,44 +1,51 @@
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AdminAuthService } from '../../../core/services/admin-auth.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { authHeroIllustration } from '../../../core/utils/food-image.util';
 
 @Component({
   selector: 'app-admin-login',
   standalone: true,
-  imports: [FormsModule, IconComponent],
+  imports: [FormsModule, RouterLink, IconComponent],
   template: `
-    <div class="flex min-h-screen items-center justify-center bg-ink-900 px-4">
-      <div class="w-full max-w-sm">
+    <div class="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      <img [src]="backgroundImage" alt="" class="absolute inset-0 -z-10 h-full w-full object-cover" />
+      <div class="container-shell relative flex max-w-md flex-col justify-center py-10">
         <div class="mb-6 text-center">
           <span class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-ember-500 text-white">
             <app-icon name="shield-check" [size]="20" />
           </span>
-          <h1 class="mt-3 font-display text-2xl font-bold text-white">Admin Login</h1>
+          <h1 class="mt-3 font-display text-2xl font-bold text-ink-900">Admin Login</h1>
+          <p class="mt-1 text-sm text-ink-400">Manage restaurants, orders and the FeastGo platform.</p>
         </div>
 
-        <div class="rounded-2xl bg-white p-5 shadow-[var(--shadow-pop)]">
+        <div class="auth-card space-y-4 p-5">
           @if (error()) {
-            <p class="mb-3 rounded-lg bg-ember-50 px-3 py-2 text-sm font-medium text-ember-700">{{ error() }}</p>
+            <p class="rounded-lg bg-ember-50 px-3 py-2 text-sm font-medium text-ember-700">{{ error() }}</p>
           }
           <form class="space-y-3" (submit)="onSubmit($event)">
-            <input type="email" [(ngModel)]="email" name="email" required placeholder="Email address" class="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-ember-400" />
+            <input [(ngModel)]="identifier" name="identifier" required placeholder="Email or mobile number" class="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-ember-400" />
             <input type="password" [(ngModel)]="password" name="password" required placeholder="Password" class="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-ember-400" />
             <button type="submit" [disabled]="submitting()" class="w-full rounded-lg bg-ink-900 py-2.5 text-sm font-bold text-white hover:bg-ink-700 disabled:opacity-50">
               {{ submitting() ? 'Signing in…' : 'Sign in' }}
             </button>
           </form>
+          <p class="text-center text-sm">
+            <a routerLink="/admin/forgot-password" class="font-semibold text-ink-500 hover:text-ink-700">Forgot password?</a>
+          </p>
         </div>
       </div>
     </div>
   `,
 })
 export class AdminLoginComponent {
-  email = '';
+  identifier = '';
   password = '';
   submitting = signal(false);
   error = signal<string | null>(null);
+  backgroundImage = authHeroIllustration();
 
   constructor(
     private auth: AdminAuthService,
@@ -51,11 +58,11 @@ export class AdminLoginComponent {
     this.submitting.set(true);
     this.error.set(null);
     try {
-      await this.auth.login(this.email.trim(), this.password);
+      await this.auth.login(this.identifier.trim(), this.password);
       const redirect = this.route.snapshot.queryParamMap.get('redirect') ?? '/admin/dashboard';
       this.router.navigateByUrl(redirect);
     } catch (err: any) {
-      this.error.set(err?.error?.message ?? 'Invalid email or password');
+      this.error.set(err?.error?.message ?? 'Invalid credentials');
     } finally {
       this.submitting.set(false);
     }

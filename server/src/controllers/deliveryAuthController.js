@@ -121,15 +121,17 @@ export async function signup(req, res, next) {
 
 export async function login(req, res, next) {
   try {
-    const email = String(req.body.email ?? '').trim().toLowerCase();
+    const identifier = String(req.body.identifier ?? req.body.email ?? '').trim();
     const password = String(req.body.password ?? '');
-    if (!email || !password) throw new ApiError(400, 'Email and password are required');
+    if (!identifier || !password) throw new ApiError(400, 'Email/mobile number and password are required');
 
-    const partner = await DeliveryPartner.findOne({ email }).select('+passwordHash');
-    if (!partner) throw new ApiError(401, 'Invalid email or password');
+    const partner = await DeliveryPartner.findOne({
+      $or: [{ email: identifier.toLowerCase() }, { phone: identifier }],
+    }).select('+passwordHash');
+    if (!partner) throw new ApiError(401, 'Invalid credentials');
 
     const match = await bcrypt.compare(password, partner.passwordHash);
-    if (!match) throw new ApiError(401, 'Invalid email or password');
+    if (!match) throw new ApiError(401, 'Invalid credentials');
 
     respondWithToken(res, partner);
   } catch (err) {

@@ -69,3 +69,46 @@ export function foodCollageBackground(emojis: string[]): string {
 </svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
+
+// Light, airy full-page backdrop for standalone auth screens (admin login) —
+// soft coral squiggles + floating food emoji kept to the edges so a centered
+// card/form always has a clean, uncluttered middle to sit on top of.
+export function authHeroIllustration(): string {
+  const w = 1600;
+  const h = 1000;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <defs>
+    <radialGradient id="washA" cx="12%" cy="18%" r="45%">
+      <stop offset="0%" stop-color="#ffe3d9" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#ffe3d9" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="washB" cx="90%" cy="85%" r="45%">
+      <stop offset="0%" stop-color="#ffd9c7" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#ffd9c7" stop-opacity="0" />
+    </radialGradient>
+    <filter id="dropShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000000" flood-opacity="0.16" />
+    </filter>
+  </defs>
+  <rect width="${w}" height="${h}" fill="#fffaf6" />
+  <rect width="${w}" height="${h}" fill="url(#washA)" />
+  <rect width="${w}" height="${h}" fill="url(#washB)" />
+
+  <g fill="none" stroke="#ffb4a1" stroke-width="3" opacity="0.55">
+    <path d="M -40 60 C 140 -20, 220 160, 130 240 C 40 320, 260 300, 340 140" />
+    <path d="M 30 620 C 150 560, 120 720, 260 700 C 380 685, 340 560, 480 600" />
+    <path d="M ${w - 30} 90 C ${w - 180} 30, ${w - 260} 200, ${w - 150} 260 C ${w - 60} 320, ${w - 300} 320, ${w - 360} 170" />
+    <path d="M ${w - 20} 700 C ${w - 160} 640, ${w - 140} 800, ${w - 300} 780 C ${w - 420} 765, ${w - 380} 640, ${w - 520} 680" />
+  </g>
+
+  <g font-family="Segoe UI Emoji, Apple Color Emoji, sans-serif" filter="url(#dropShadow)">
+    <text x="150" y="430" font-size="150">🍔</text>
+    <text x="330" y="150" font-size="60">🌿</text>
+    <text x="120" y="770" font-size="70">🍅</text>
+    <text x="${w - 210}" y="260" font-size="150">🥟</text>
+    <text x="${w - 260}" y="700" font-size="140">🍕</text>
+    <text x="${w - 90}" y="420" font-size="55">🍅</text>
+  </g>
+</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}

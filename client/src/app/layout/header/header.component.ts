@@ -16,22 +16,22 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
   standalone: true,
   imports: [RouterLink, RouterLinkActive, IconComponent, SearchBarComponent, NotificationBellComponent, NotificationCenterComponent],
   template: `
-    <header class="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur dark:border-ink-700 dark:bg-ink-900/90">
+    <header class="sticky top-0 z-50 border-b border-ember-600 bg-ember-500 dark:border-ember-700 dark:bg-ember-600">
       <div class="container-shell-full flex h-16 items-center gap-2 sm:gap-4">
         <a routerLink="/" class="flex shrink-0 items-center gap-2">
-          <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-ember-500 text-white">
+          <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white">
             <app-icon name="flame" [size]="18" />
           </span>
-          <span class="font-display text-xl font-extrabold tracking-tight text-ink-900 dark:text-white">FeastGo</span>
+          <span class="font-display text-xl font-extrabold tracking-tight text-white">FeastGo</span>
         </a>
 
         <div class="relative hidden shrink-0 sm:block" #locationWrapper>
           <button
             type="button"
-            class="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-ink-600 hover:bg-ink-50"
+            class="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-white/90 hover:bg-white/10"
             (click)="locationOpen.set(!locationOpen())"
           >
-            <app-icon name="map-pin" [size]="16" class="text-ember-500" />
+            <app-icon name="map-pin" [size]="16" class="text-white" />
             <span class="max-w-[140px] truncate">{{ location.label() }}</span>
             <app-icon name="chevron_down" [size]="14" />
           </button>
@@ -92,8 +92,8 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
         <nav class="ml-auto flex items-center gap-1 sm:gap-2">
           <a
             routerLink="/restaurants"
-            routerLinkActive="text-ember-600"
-            class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-50 sm:block"
+            routerLinkActive="bg-white/20"
+            class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-white/10 sm:block"
           >
             Restaurants
           </a>
@@ -101,8 +101,8 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
           @if (auth.isAuthenticated()) {
             <a
               routerLink="/orders"
-              routerLinkActive="text-ember-600"
-              class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-600 hover:bg-ink-50 sm:block"
+              routerLinkActive="bg-white/20"
+              class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-white/10 sm:block"
             >
               Orders
             </a>
@@ -110,20 +110,20 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
 
           @if (auth.isAuthenticated()) {
             <div class="hidden sm:block">
-              <app-notification-bell role="customer" [iconSize]="20" />
+              <app-notification-bell role="customer" [iconSize]="20" [dark]="true" />
             </div>
           }
 
           <button
             type="button"
-            class="relative hidden rounded-lg p-2.5 text-ink-700 hover:bg-ink-50 sm:block"
+            class="relative hidden rounded-lg p-2.5 text-white hover:bg-white/10 sm:block"
             (click)="cart.openDrawer()"
             aria-label="Open cart"
           >
             <app-icon name="cart" [size]="21" />
             @if (cart.itemCount() > 0) {
               <span
-                class="absolute -right-0.5 -top-0.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white"
+                class="absolute -right-0.5 -top-0.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-ember-600"
               >
                 {{ cart.itemCount() }}
               </span>
@@ -134,7 +134,7 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
             <div class="relative hidden sm:block" #menuWrapper>
               <button
                 type="button"
-                class="flex items-center gap-1.5 rounded-lg py-1.5 pl-1.5 pr-2 hover:bg-ink-50"
+                class="flex items-center gap-1.5 rounded-lg py-1.5 pl-1.5 pr-2 hover:bg-white/10"
                 (click)="menuOpen.set(!menuOpen())"
                 aria-haspopup="true"
                 [attr.aria-expanded]="menuOpen()"
@@ -142,11 +142,11 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
                 @if (auth.currentUser()?.photo; as photo) {
                   <img [src]="photo" class="h-8 w-8 rounded-full object-cover" alt="" />
                 } @else {
-                  <span class="flex h-8 w-8 items-center justify-center rounded-full bg-ink-800 text-xs font-bold text-white">
+                  <span class="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-xs font-bold text-white">
                     {{ initials() }}
                   </span>
                 }
-                <app-icon name="chevron_down" [size]="14" class="text-ink-500" />
+                <app-icon name="chevron_down" [size]="14" class="text-white" />
               </button>
 
               @if (menuOpen()) {
@@ -182,7 +182,7 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
           } @else {
             <a
               routerLink="/login"
-              class="hidden rounded-lg bg-ink-900 px-4 py-2 text-sm font-semibold text-white hover:bg-ink-700 sm:block"
+              class="hidden rounded-lg bg-white px-4 py-2 text-sm font-semibold text-ember-600 hover:bg-white/90 sm:block"
             >
               Sign in
             </a>
@@ -192,13 +192,13 @@ import { SearchBarComponent } from '../../shared/components/search-bar/search-ba
           <div class="relative sm:hidden" #mobileNavWrapper>
             <button
               type="button"
-              class="relative rounded-lg p-2 text-ink-700 hover:bg-ink-50"
+              class="relative rounded-lg p-2 text-white hover:bg-white/10"
               (click)="mobileNavOpen.set(!mobileNavOpen())"
               aria-label="Menu"
             >
               <app-icon name="menu" [size]="22" />
               @if (!auth.isAuthenticated() || notif.unreadCount() > 0 || cart.itemCount() > 0) {
-                <span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-ember-500"></span>
+                <span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-white"></span>
               }
             </button>
 

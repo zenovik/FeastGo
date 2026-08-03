@@ -390,7 +390,7 @@ const APP_VERSION = '1.0.0';
             <div class="card-surface p-5">
               <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Appearance</h2>
               <p class="mt-1 text-sm text-ink-500 dark:text-ink-400">Choose how the Delivery Panel looks on this device.</p>
-              <div class="mt-4 grid grid-cols-3 gap-2">
+              <div class="mt-4 grid grid-cols-2 gap-2">
                 <button type="button" class="flex flex-col items-center gap-1.5 rounded-lg border p-3" [class.border-ember-500]="theme.mode() === 'light'" [class.border-ink-200]="theme.mode() !== 'light'" [class.dark:border-ink-700]="theme.mode() !== 'light'" (click)="setTheme('light')">
                   <app-icon name="sun" [size]="20" [class]="theme.mode() === 'light' ? 'text-ember-600' : 'text-ink-400'" />
                   <span class="text-xs font-bold" [class.text-ember-600]="theme.mode() === 'light'">Light Mode</span>
@@ -398,10 +398,6 @@ const APP_VERSION = '1.0.0';
                 <button type="button" class="flex flex-col items-center gap-1.5 rounded-lg border p-3" [class.border-ember-500]="theme.mode() === 'dark'" [class.border-ink-200]="theme.mode() !== 'dark'" [class.dark:border-ink-700]="theme.mode() !== 'dark'" (click)="setTheme('dark')">
                   <app-icon name="moon" [size]="20" [class]="theme.mode() === 'dark' ? 'text-ember-600' : 'text-ink-400'" />
                   <span class="text-xs font-bold" [class.text-ember-600]="theme.mode() === 'dark'">Dark Mode</span>
-                </button>
-                <button type="button" class="flex flex-col items-center gap-1.5 rounded-lg border p-3" [class.border-ember-500]="theme.mode() === 'system'" [class.border-ink-200]="theme.mode() !== 'system'" [class.dark:border-ink-700]="theme.mode() !== 'system'" (click)="setTheme('system')">
-                  <app-icon name="settings" [size]="20" [class]="theme.mode() === 'system' ? 'text-ember-600' : 'text-ink-400'" />
-                  <span class="text-xs font-bold" [class.text-ember-600]="theme.mode() === 'system'">System Theme</span>
                 </button>
               </div>
             </div>

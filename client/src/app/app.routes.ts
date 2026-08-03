@@ -206,6 +206,12 @@ export const routes: Routes = [
     title: 'Admin login — FeastGo',
   },
   {
+    path: 'admin/forgot-password',
+    loadComponent: () =>
+      import('./pages/admin/forgot-password/admin-forgot-password.component').then((m) => m.AdminForgotPasswordComponent),
+    title: 'Reset password — FeastGo',
+  },
+  {
     path: 'admin/dashboard',
     loadComponent: () =>
       import('./pages/admin/dashboard/admin-dashboard.component').then((m) => m.AdminDashboardComponent),

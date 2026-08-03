@@ -5,6 +5,7 @@ import { AuthMethod, AuthMode, AuthService } from '../../../core/services/auth.s
 import { ToastService } from '../../../core/services/toast.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { MobileFieldComponent } from '../../../shared/components/mobile-field/mobile-field.component';
+import { authHeroIllustration } from '../../../core/utils/food-image.util';
 
 type Step = 'identity' | 'otp' | 'location';
 const OTP_LENGTH = 6;
@@ -19,11 +20,8 @@ function isValidEmail(value: string): boolean {
   standalone: true,
   imports: [FormsModule, IconComponent, MobileFieldComponent],
   template: `
-    <div class="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden px-4 py-10">
-      <!-- Glassmorphism backdrop -->
-      <div class="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-ember-50 via-white to-basil-50"></div>
-      <div class="pointer-events-none absolute -left-24 -top-24 -z-10 h-72 w-72 rounded-full bg-ember-200/40 blur-3xl"></div>
-      <div class="pointer-events-none absolute -bottom-24 -right-24 -z-10 h-72 w-72 rounded-full bg-basil-200/40 blur-3xl"></div>
+    <div class="relative z-0 flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden px-4 py-10">
+      <img [src]="backgroundImage" alt="" class="absolute inset-0 -z-10 h-full w-full object-cover" />
 
       <div class="w-full max-w-md">
         <div class="mb-6 text-center">
@@ -50,7 +48,7 @@ function isValidEmail(value: string): boolean {
           </p>
         </div>
 
-        <div class="auth-card-enter rounded-3xl border border-white/60 bg-white/70 p-6 shadow-[0_8px_40px_-8px_rgba(20,10,5,0.18)] backdrop-blur-xl">
+        <div class="auth-card auth-card-enter p-5">
           @if (step() === 'identity') {
             <div class="mb-5 flex rounded-xl bg-ink-100/70 p-1 text-sm font-bold">
               <button type="button" class="flex-1 rounded-lg py-2 transition" [class]="mode() === 'login' ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-400'" (click)="setMode('login')">
@@ -295,6 +293,7 @@ export class LoginComponent {
 
   readonly OTP_LENGTH = OTP_LENGTH;
   readonly otpIndexes = Array.from({ length: OTP_LENGTH }, (_, i) => i);
+  backgroundImage = authHeroIllustration();
 
   mode = signal<AuthMode>('login');
   method = signal<AuthMethod>('phone');

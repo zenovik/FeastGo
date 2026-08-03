@@ -13,6 +13,8 @@ const router = Router();
 router.post('/auth/login', adminAuth.login);
 router.post('/auth/logout', adminAuth.logout);
 router.get('/auth/me', requireRole('admin'), adminAuth.me);
+router.post('/auth/request-password-reset', adminAuth.requestPasswordReset);
+router.post('/auth/reset-password', adminAuth.resetPassword);
 
 const adminOnly = requireRole('admin');
 
