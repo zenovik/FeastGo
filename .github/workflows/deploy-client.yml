@@ -36,7 +36,7 @@ jobs:
         run: npm run build
 
       - name: Deploy over SSH (rsync)
-        uses: easingthemes/ssh-deploy@v5
+        uses: easingthemes/ssh-deploy@v6
         env:
           SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
           REMOTE_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
