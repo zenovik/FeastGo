@@ -1,0 +1,47 @@
+name: Deploy Client to Hostinger
+
+# Builds the Angular app on a modern Node.js version (GitHub's runner, not
+# Hostinger's) and pushes only the compiled static output over SSH/rsync.
+# This bypasses Hostinger's own "Deployments" build pipeline, whose fixed
+# Node.js patches (22.18.0 / 24.6.0) are older than what Angular 22's CLI
+# requires (v22.22.3+ / v24.15.0+ / v26.0.0+).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "client/**"
+  workflow_dispatch: {}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Build Angular app
+        working-directory: client
+        run: npm run build
+
+      - name: Deploy over SSH (rsync)
+        uses: easingthemes/ssh-deploy@v5
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          REMOTE_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
+          REMOTE_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+          SOURCE: "client/dist/client/browser/"
+          TARGET: ${{ secrets.HOSTINGER_REMOTE_PATH }}
+          ARGS: "-rlgoDzvc --delete"
