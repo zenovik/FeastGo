@@ -11,16 +11,17 @@ import { normalizeMobile, validateMobile } from '../../../shared/utils/mobile-va
   standalone: true,
   imports: [FormsModule, RouterLink, IconComponent, MobileFieldComponent],
   template: `
-    <div class="container-shell flex min-h-[70vh] max-w-md flex-col justify-center py-10">
-      <div class="mb-6 text-center">
-        <span class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-ember-500 text-white">
+    <div class="auth-page auth-page-full container-shell flex max-w-md flex-col justify-center py-10">
+      <div class="auth-content">
+      <div class="auth-intro mb-6 text-center">
+        <span class="auth-mark mx-auto flex items-center justify-center rounded-xl bg-ember-500 text-white">
           <app-icon name="chef-hat" [size]="20" />
         </span>
         <h1 class="mt-3 font-display text-2xl font-bold text-ink-900">Become a FeastGo Partner</h1>
         <p class="mt-1 text-sm text-ink-400">Register your restaurant and start receiving orders.</p>
       </div>
 
-      <div class="card-surface space-y-4 p-5">
+      <div class="auth-card space-y-4 p-6">
         @if (error()) {
           <p class="rounded-lg bg-ember-50 px-3 py-2 text-sm font-medium text-ember-700">{{ error() }}</p>
         }

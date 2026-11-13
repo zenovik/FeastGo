@@ -1,31 +1,26 @@
 import { Component, ElementRef, QueryList, ViewChildren, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AuthMethod, AuthMode, AuthService } from '../../../core/services/auth.service';
+import { AuthMode, AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { MobileFieldComponent } from '../../../shared/components/mobile-field/mobile-field.component';
-import { authHeroIllustration } from '../../../core/utils/food-image.util';
+import { normalizeMobile } from '../../../shared/utils/mobile-validation';
+import { normalizeName, validateName } from '../../../shared/utils/profile-validation';
 
 type Step = 'identity' | 'otp' | 'location';
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 30;
-
-function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
 
 @Component({
   selector: 'app-login',
   standalone: true,
   imports: [FormsModule, IconComponent, MobileFieldComponent],
   template: `
-    <div class="relative z-0 flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden px-4 py-10">
-      <img [src]="backgroundImage" alt="" class="absolute inset-0 -z-10 h-full w-full object-cover" />
-
-      <div class="w-full max-w-md">
-        <div class="mb-6 text-center">
-          <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-ember-500 text-white shadow-lg shadow-ember-500/30">
+    <div class="auth-page relative z-0 flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden px-4 py-10">
+      <div class="auth-content">
+        <div class="auth-intro mb-6 text-center">
+          <span class="auth-mark mx-auto flex items-center justify-center rounded-2xl bg-ember-500 text-white shadow-lg shadow-ember-500/30">
             <app-icon name="flame" [size]="22" />
           </span>
           <h1 class="mt-3 font-display text-2xl font-bold text-ink-900">
@@ -73,15 +68,6 @@ function isValidEmail(value: string): boolean {
 
           @if (step() === 'identity') {
             <form (submit)="onSubmitIdentity($event)" class="space-y-4">
-              <div class="flex rounded-lg border border-ink-200 p-0.5 text-xs font-bold">
-                <button type="button" class="flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5" [class]="method() === 'phone' ? 'bg-ember-50 text-ember-600' : 'text-ink-400'" (click)="setMethod('phone')">
-                  <app-icon name="phone" [size]="13" /> Mobile number
-                </button>
-                <button type="button" class="flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5" [class]="method() === 'email' ? 'bg-ember-50 text-ember-600' : 'text-ink-400'" (click)="setMethod('email')">
-                  <app-icon name="mail" [size]="13" /> Email address
-                </button>
-              </div>
-
               @if (mode() === 'signup') {
                 <div>
                   <label class="mb-1 block text-xs font-semibold text-ink-500">Full name</label>
@@ -89,55 +75,33 @@ function isValidEmail(value: string): boolean {
                     [(ngModel)]="nameInput"
                     name="name"
                     (blur)="nameTouched.set(true)"
+                    (input)="nameTouched.set(true)"
                     placeholder="Your name"
+                    maxlength="50"
                     class="w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition"
                     [class.border-ink-200]="!nameTouched() || nameValid()"
                     [class.focus:border-ember-400]="!nameTouched() || nameValid()"
                     [class.border-ember-500]="nameTouched() && !nameValid()"
                   />
                   @if (nameTouched() && !nameValid()) {
-                    <p class="mt-1 text-xs font-medium text-ember-600">Name must be between 3 and 50 characters</p>
+                    <p class="mt-1 text-xs font-medium text-ember-600">{{ nameValidationMessage() }}</p>
                   }
                 </div>
               }
 
               <div>
-                <label class="mb-1 block text-xs font-semibold text-ink-500">{{ method() === 'phone' ? 'Mobile number' : 'Email address' }}</label>
-                @if (method() === 'phone') {
-                  <app-mobile-field [value]="phoneInput" (valueChange)="phoneInput = $event" (validityChange)="phoneValid.set($event)" placeholder="10-digit mobile number" />
-                } @else {
-                  <div class="relative">
-                    <input
-                      type="email"
-                      [(ngModel)]="emailInput"
-                      name="email"
-                      (blur)="emailTouched.set(true)"
-                      (input)="emailTouched.set(true)"
-                      placeholder="you@example.com"
-                      autocomplete="email"
-                      class="w-full rounded-lg border px-3 py-2.5 pr-9 text-sm outline-none transition"
-                      [class.border-ink-200]="!emailTouched()"
-                      [class.focus:border-ember-400]="!emailTouched()"
-                      [class.border-basil-500]="emailTouched() && emailValid()"
-                      [class.border-ember-500]="emailTouched() && !emailValid()"
-                    />
-                    @if (emailTouched()) {
-                      <span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
-                        <app-icon [name]="emailValid() ? 'check' : 'x'" [size]="15" [class]="emailValid() ? 'text-basil-600' : 'text-ember-600'" />
-                      </span>
-                    }
-                  </div>
-                  @if (emailTouched() && !emailValid()) {
-                    <p class="mt-1 text-xs font-medium text-ember-600">Enter a valid email address</p>
-                  }
-                }
+                <label class="mb-1 block text-xs font-semibold text-ink-500">Mobile number</label>
+                <app-mobile-field [value]="phoneInput" (valueChange)="phoneInput = $event" (validityChange)="phoneValid.set($event)" placeholder="10-digit mobile number" />
               </div>
 
               @if (mode() === 'signup') {
                 <label class="flex items-start gap-2 text-xs text-ink-600">
-                  <input type="checkbox" class="mt-0.5" [(ngModel)]="termsAccepted" name="termsAccepted" />
+                  <input type="checkbox" class="mt-0.5" [(ngModel)]="termsAccepted" (change)="termsTouched.set(true)" name="termsAccepted" />
                   <span>I agree to the <span class="font-semibold text-ink-800">Terms &amp; Conditions</span> and <span class="font-semibold text-ink-800">Privacy Policy</span></span>
                 </label>
+                @if (termsTouched() && !termsAccepted) {
+                  <p class="-mt-3 text-xs font-medium text-ember-600">Accept the terms to create an account.</p>
+                }
               }
 
               <label class="flex items-center gap-2 text-xs font-semibold text-ink-600">
@@ -192,7 +156,7 @@ function isValidEmail(value: string): boolean {
                   <div class="flex items-center gap-3">
                     <app-icon name="lock" [size]="18" class="shrink-0 text-gold-600" />
                     <div>
-                      <p class="text-[11px] font-bold uppercase tracking-wide text-gold-700">Demo mode — no SMS/email is actually sent</p>
+                      <p class="text-[11px] font-bold uppercase tracking-wide text-gold-700">Demo mode — no SMS is actually sent</p>
                       <p class="mt-0.5 font-display text-lg font-extrabold tracking-wide text-gold-800">
                         Demo OTP: <span class="tracking-[0.25em]">{{ devOtp() }}</span>
                       </p>
@@ -210,7 +174,7 @@ function isValidEmail(value: string): boolean {
 
               <button
                 type="submit"
-                [disabled]="submitting() || otpDigits().join('').length < OTP_LENGTH"
+                [disabled]="submitting() || verified() || otpDigits().join('').length < OTP_LENGTH"
                 class="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-ember-500 py-2.5 text-sm font-bold text-white hover:bg-ember-600 disabled:opacity-50"
               >
                 {{ submitting() ? 'Verifying…' : 'Verify & continue' }}
@@ -218,7 +182,7 @@ function isValidEmail(value: string): boolean {
 
               <div class="mt-3 flex items-center justify-between text-sm">
                 <button type="button" class="font-semibold text-ink-500 hover:text-ink-800" (click)="changeIdentity()">
-                  Change {{ method() === 'phone' ? 'number' : 'email' }}
+                  Change number
                 </button>
                 <button
                   type="button"
@@ -293,19 +257,15 @@ export class LoginComponent {
 
   readonly OTP_LENGTH = OTP_LENGTH;
   readonly otpIndexes = Array.from({ length: OTP_LENGTH }, (_, i) => i);
-  backgroundImage = authHeroIllustration();
-
   mode = signal<AuthMode>('login');
-  method = signal<AuthMethod>('phone');
   step = signal<Step>('identity');
 
   phoneInput = '';
   phoneValid = signal(false);
-  emailInput = '';
-  emailTouched = signal(false);
   nameInput = '';
   nameTouched = signal(false);
   termsAccepted = false;
+  termsTouched = signal(false);
   rememberMe = true;
 
   otpDigits = signal<string[]>(Array(OTP_LENGTH).fill(''));
@@ -327,21 +287,20 @@ export class LoginComponent {
     private toast: ToastService
   ) {}
 
-  emailValid(): boolean {
-    return isValidEmail(this.emailInput);
+  nameValid(): boolean {
+    return validateName(this.nameInput).valid;
   }
 
-  nameValid(): boolean {
-    const len = this.nameInput.trim().length;
-    return len >= 3 && len <= 50;
+  nameValidationMessage(): string {
+    return validateName(this.nameInput).message;
   }
 
   identityValue(): string {
-    return this.method() === 'phone' ? this.phoneInput : this.emailInput.trim();
+    return this.phoneInput;
   }
 
   identityValid(): boolean {
-    const identityOk = this.method() === 'phone' ? this.phoneValid() : this.emailValid();
+    const identityOk = this.phoneValid();
     if (this.mode() === 'login') return identityOk;
     return identityOk && this.nameValid() && this.termsAccepted;
   }
@@ -352,36 +311,31 @@ export class LoginComponent {
     this.suggestSwitch.set(null);
   }
 
-  setMethod(method: AuthMethod) {
-    this.method.set(method);
-    this.error.set(null);
-    this.suggestSwitch.set(null);
-  }
-
   async onSubmitIdentity(e: Event) {
     e.preventDefault();
     this.nameTouched.set(true);
-    this.emailTouched.set(true);
     if (!this.identityValid()) return;
 
-    this.normalizedValue = this.method() === 'phone' ? this.phoneInput.replace(/\D/g, '') : this.emailInput.trim().toLowerCase();
+    this.normalizedValue = normalizeMobile(this.phoneInput);
     await this.sendOtp();
   }
 
-  private async sendOtp() {
+  private async sendOtp(): Promise<boolean> {
     this.submitting.set(true);
     this.error.set(null);
     this.suggestSwitch.set(null);
     try {
-      const res = await this.auth.requestOtp(this.method(), this.normalizedValue, this.mode());
+      const res = await this.auth.requestOtp('phone', this.normalizedValue, this.mode());
       this.devOtp.set(res.devOtp ?? null);
       this.step.set('otp');
       this.verified.set(false);
       this.otpDigits.set(Array(OTP_LENGTH).fill(''));
       this.startCooldown();
       setTimeout(() => this.otpBoxes?.first?.nativeElement.focus(), 50);
+      return true;
     } catch (err: any) {
       this.applyRequestError(err);
+      return false;
     } finally {
       this.submitting.set(false);
     }
@@ -415,6 +369,7 @@ export class LoginComponent {
     const digits = [...this.otpDigits()];
     digits[index] = value;
     this.otpDigits.set(digits);
+    this.error.set(null);
     if (value && index < OTP_LENGTH - 1) {
       this.otpBoxes.get(index + 1)?.nativeElement.focus();
     }
@@ -436,6 +391,7 @@ export class LoginComponent {
     const digits = Array(OTP_LENGTH).fill('');
     for (let i = 0; i < pasted.length; i++) digits[i] = pasted[i];
     this.otpDigits.set(digits);
+    this.error.set(null);
     const lastIndex = Math.min(pasted.length, OTP_LENGTH) - 1;
     this.otpBoxes.get(Math.max(lastIndex, 0))?.nativeElement.focus();
     if (pasted.length === OTP_LENGTH) this.submitOtp();
@@ -448,13 +404,21 @@ export class LoginComponent {
 
   private async submitOtp() {
     const code = this.otpDigits().join('');
-    if (code.length < OTP_LENGTH || this.submitting()) return;
+    if (this.submitting() || this.verified()) return;
+    if (!/^\d{6}$/.test(code)) {
+      this.error.set('Enter all 6 digits of the verification code.');
+      return;
+    }
+    if (this.resendCooldown() === 0) {
+      this.error.set('This code has expired. Request a new one.');
+      return;
+    }
 
     this.submitting.set(true);
     this.error.set(null);
     try {
       if (this.mode() === 'login') {
-        const user = await this.auth.verifyLoginOtp(this.method(), this.normalizedValue, code, this.rememberMe);
+        const user = await this.auth.verifyLoginOtp('phone', this.normalizedValue, code, this.rememberMe);
         this.verified.set(true);
         this.toast.success(`Welcome back, ${user.name.split(' ')[0]}!`);
         setTimeout(() => {
@@ -462,8 +426,8 @@ export class LoginComponent {
           else this.redirectAfterAuth();
         }, 500);
       } else {
-        await this.auth.verifySignupOtp(this.method(), this.normalizedValue, code);
-        const user = await this.auth.completeSignup(this.method(), this.normalizedValue, this.nameInput.trim(), this.termsAccepted, this.rememberMe);
+        await this.auth.verifySignupOtp('phone', this.normalizedValue, code);
+        const user = await this.auth.completeSignup('phone', this.normalizedValue, normalizeName(this.nameInput), this.termsAccepted, this.rememberMe);
         this.verified.set(true);
         this.toast.success(`Welcome to FeastGo, ${user.name.split(' ')[0]}!`);
         setTimeout(() => this.step.set('location'), 500);
@@ -479,8 +443,7 @@ export class LoginComponent {
 
   async resendOtp() {
     if (this.resendCooldown() > 0) return;
-    await this.sendOtp();
-    this.toast.success('New code sent');
+    if (await this.sendOtp()) this.toast.success('New code sent');
   }
 
   changeIdentity() {

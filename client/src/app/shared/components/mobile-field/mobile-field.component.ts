@@ -24,7 +24,7 @@ import { IconComponent } from '../icon/icon.component';
           [value]="value"
           [disabled]="disabled"
           (input)="onInput($event)"
-          (blur)="touched = true"
+          (blur)="onBlur()"
           class="w-full rounded-lg border px-3 py-2.5 pr-9 text-sm outline-none transition disabled:bg-ink-50 dark:bg-ink-900 dark:disabled:bg-ink-800"
           [class.border-ink-200]="state() === null"
           [class.dark:border-ink-700]="state() === null"
@@ -55,8 +55,13 @@ export class MobileFieldComponent {
   validateMobile = validateMobile;
 
   state(): 'valid' | 'invalid' | null {
-    if (!this.touched || !this.value) return null;
+    if (!this.touched) return null;
     return validateMobile(this.value).valid ? 'valid' : 'invalid';
+  }
+
+  onBlur() {
+    this.touched = true;
+    this.validityChange.emit(validateMobile(this.value).valid);
   }
 
   onInput(e: Event) {

@@ -9,14 +9,14 @@ import { IconComponent } from '../../../shared/components/icon/icon.component';
   standalone: true,
   imports: [FormsModule, RouterLink, IconComponent],
   template: `
-    <div class="relative z-0 grid min-h-screen grid-cols-1 overflow-hidden bg-ember-50 lg:grid-cols-2">
+    <div class="auth-page auth-page-full relative z-0 grid grid-cols-1 overflow-hidden lg:grid-cols-2">
       <!-- Left: branding panel — hidden below lg, this is a marketing/context panel, not part of the form. -->
       <div class="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-center lg:px-16">
         <div class="pointer-events-none absolute -left-24 -top-24 -z-10 h-72 w-72 rounded-full bg-ember-200/50 blur-3xl"></div>
         <div class="pointer-events-none absolute -bottom-24 -right-16 -z-10 h-72 w-72 rounded-full bg-ember-300/40 blur-3xl"></div>
 
         <div class="flex items-center gap-2">
-          <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-ember-500 text-white">
+          <span class="auth-mark flex items-center justify-center rounded-xl bg-ember-500 text-white">
             <app-icon name="flame" [size]="20" />
           </span>
           <span class="font-display text-2xl font-extrabold text-ink-900">FeastGo</span>
@@ -60,7 +60,7 @@ import { IconComponent } from '../../../shared/components/icon/icon.component';
       <div class="flex items-center justify-center px-4 py-10">
         <div class="w-full max-w-md">
           <div class="mb-6 text-center lg:hidden">
-            <span class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-ember-500 text-white">
+            <span class="auth-mark mx-auto flex items-center justify-center rounded-xl bg-ember-500 text-white">
               <app-icon name="bike" [size]="20" />
             </span>
             <h1 class="mt-3 font-display text-2xl font-bold text-ink-900">Delivery Partner Login</h1>

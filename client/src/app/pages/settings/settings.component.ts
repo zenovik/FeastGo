@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NotificationPrefs, ThemeMode } from '../../core/models/user.model';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
@@ -11,7 +12,7 @@ import { normalizeMobile, validateMobile } from '../../shared/utils/mobile-valid
 import { validateEmail } from '../../shared/utils/profile-validation';
 import { ProfileComponent } from '../profile/profile.component';
 
-type SectionKey = 'personal' | 'addresses' | 'security' | 'notifications' | 'appearance' | 'language' | 'payment' | 'privacy' | 'support' | 'about';
+type SectionKey = 'personal' | 'addresses' | 'security' | 'notifications' | 'appearance' | 'language' | 'payment' | 'privacy' | 'support' | 'about' | 'testing';
 
 const SECTIONS: { key: SectionKey; emoji: string; label: string }[] = [
   { key: 'personal', emoji: '👤', label: 'Personal Information' },
@@ -24,6 +25,7 @@ const SECTIONS: { key: SectionKey; emoji: string; label: string }[] = [
   { key: 'privacy', emoji: '🛡️', label: 'Privacy' },
   { key: 'support', emoji: '❓', label: 'Help & Support' },
   { key: 'about', emoji: 'ℹ️', label: 'About' },
+  { key: 'testing', emoji: '🧪', label: 'Local Testing Data' },
 ];
 
 const NOTIF_TOGGLES: { key: keyof NotificationPrefs; label: string; hint: string }[] = [
@@ -52,6 +54,13 @@ const FAQS = [
 ];
 
 const APP_VERSION = '1.0.0';
+
+function clearFeastGoStorage(storage: Storage) {
+  for (let index = storage.length - 1; index >= 0; index--) {
+    const key = storage.key(index);
+    if (key?.startsWith('feastgo_')) storage.removeItem(key);
+  }
+}
 
 @Component({
   selector: 'app-settings',
@@ -441,6 +450,40 @@ const APP_VERSION = '1.0.0';
               </div>
             </div>
           }
+
+          @if (activeSection() === 'testing') {
+            <div class="space-y-4">
+              <div class="card-surface p-5">
+                <div class="flex items-start gap-3">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ember-50 text-ember-600 dark:bg-ember-500/10 dark:text-ember-400">
+                    <app-icon name="layers" [size]="19" />
+                  </span>
+                  <div>
+                    <h2 class="font-display text-lg font-bold text-ink-900 dark:text-white">Local Testing Data</h2>
+                    <p class="mt-1 text-sm leading-6 text-ink-500 dark:text-ink-400">
+                      Reset FeastGo's saved demo data on this browser to test the app from a fresh state.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-ember-200 bg-ember-50/70 p-5 dark:border-ember-500/20 dark:bg-ember-500/5">
+                <h3 class="text-sm font-bold text-ink-900 dark:text-white">Clear local app data</h3>
+                <p class="mt-1.5 text-sm leading-6 text-ink-600 dark:text-ink-300">
+                  This clears FeastGo demo accounts, orders, cart, favorites, preferences, and saved sign-in tokens from local and session storage, then signs you out and reloads the app. It does not affect data for other websites.
+                </p>
+                <button
+                  type="button"
+                  class="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl border border-ember-300 bg-white px-4 py-2 text-sm font-bold text-ember-700 shadow-sm transition hover:border-ember-500 hover:bg-ember-100 disabled:cursor-wait disabled:opacity-50 dark:border-ember-500/30 dark:bg-ink-800 dark:text-ember-300 dark:hover:bg-ember-500/10"
+                  [disabled]="clearingLocalData()"
+                  (click)="clearLocalTestingData()"
+                >
+                  <app-icon name="trash" [size]="15" />
+                  {{ clearingLocalData() ? 'Clearing local data…' : 'Clear local testing data' }}
+                </button>
+              </div>
+            </div>
+          }
         </div>
       </div>
     </div>
@@ -459,10 +502,34 @@ export class SettingsComponent implements OnInit {
   constructor(
     public auth: AuthService,
     public theme: ThemeService,
+    private confirm: ConfirmService,
     private toast: ToastService,
     private route: ActivatedRoute,
     private router: Router
   ) {}
+
+  clearingLocalData = signal(false);
+
+  async clearLocalTestingData() {
+    const confirmed = await this.confirm.ask({
+      title: 'Clear local FeastGo data?',
+      message: 'This will remove saved FeastGo demo data and sign you out on this browser. The app will reload with fresh demo data. This cannot be undone.',
+      confirmLabel: 'Clear data and reload',
+      cancelLabel: 'Cancel',
+    });
+    if (!confirmed) return;
+
+    this.clearingLocalData.set(true);
+    try {
+      clearFeastGoStorage(localStorage);
+      clearFeastGoStorage(sessionStorage);
+      window.location.reload();
+    } catch (error) {
+      this.clearingLocalData.set(false);
+      console.error('Could not clear local FeastGo data.', error);
+      this.toast.error('Could not clear local data. Check your browser storage permissions and try again.');
+    }
+  }
 
   ngOnInit() {
     this.applySectionFromRoute();

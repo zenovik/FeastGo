@@ -467,7 +467,11 @@ export class OrderTrackingComponent implements OnInit, OnDestroy {
     if (step.source === 'order') {
       return o.statusHistory.find((h) => h.status === step.key)?.at ?? null;
     }
-    return o.deliveryStatusHistory.find((h) => h.status === step.key)?.at ?? null;
+    const at = o.deliveryStatusHistory.find((h) => h.status === step.key)?.at;
+    if (at) return at;
+    return step.key === 'assigned'
+      ? (o.deliveryStatusHistory.find((h) => h.status === 'accepted')?.at ?? null)
+      : null;
   }
 
   isPaid(o: Order): boolean {

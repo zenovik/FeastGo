@@ -1,121 +1,220 @@
 import { AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { FoodItem, foodItemToMenuItem } from '../../core/models/food-item.model';
-import { ExploreCard } from '../../core/models/explore-card.model';
-import { ExploreCardService } from '../../core/services/explore-card.service';
 import { FoodQuery, FoodService, FoodSort } from '../../core/services/food.service';
 import { ProductModalService } from '../../core/services/product-modal.service';
 import { ScrollRestorationService } from '../../core/services/scroll-restoration.service';
-import { foodCollageBackground } from '../../core/utils/food-image.util';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { FoodCardComponent } from '../../shared/components/food-card/food-card.component';
 import { InrPipe } from '../../shared/pipes/inr.pipe';
+
+type FilterKey = 'nearFast' | 'rating4' | 'pureVeg' | 'under199' | 'offers' | 'bestSeller' | 'newArrivals' | 'healthy';
+
+interface ExploreTile {
+  label: string;
+  icon: string;
+  category?: string;
+  filters?: FilterKey[];
+}
+
+const EXPLORE_TILES: ExploreTile[] = [
+  { label: 'Offers', icon: 'percent', filters: ['offers'] },
+  { label: 'Top Rated', icon: 'star', filters: ['rating4'] },
+  { label: 'Healthy', icon: 'leaf', filters: ['healthy'] },
+  { label: 'Under ₹199', icon: 'banknote', filters: ['under199'] },
+  { label: 'Desserts', icon: 'flame', category: 'Desserts' },
+  { label: 'Breakfast', icon: 'compass', category: 'Breakfast' },
+  { label: 'Fast delivery', icon: 'bike', filters: ['nearFast'] },
+  { label: 'Bestsellers', icon: 'bolt', filters: ['bestSeller'] },
+];
 
 @Component({
   selector: 'app-home',
   standalone: true,
   imports: [RouterLink, IconComponent, FoodCardComponent, InrPipe],
   template: `
-    <section class="relative bg-ink-900">
-      <div class="pointer-events-none absolute inset-0 overflow-hidden">
-        <div class="absolute -right-16 -top-16 h-72 w-72 rounded-full bg-ember-500/30 blur-3xl sm:-right-24 sm:-top-24 sm:h-[28rem] sm:w-[28rem]"></div>
-        <div class="absolute -bottom-24 -left-12 h-64 w-64 rounded-full bg-[#3B5BDB]/25 blur-3xl sm:-bottom-40 sm:-left-20 sm:h-96 sm:w-96"></div>
+    <section class="relative isolate overflow-hidden bg-[#fff8f3]">
+      <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div class="absolute -right-32 -top-24 h-80 w-80 rounded-full bg-ember-200/50 blur-3xl sm:h-[30rem] sm:w-[30rem]"></div>
+        <div class="absolute -bottom-40 left-1/3 h-72 w-72 rounded-full bg-[#f7e8d9]/80 blur-3xl"></div>
       </div>
 
-      <div class="container-shell-full relative py-16 sm:py-24 lg:py-36">
-        <p class="font-display text-xs font-bold uppercase tracking-[0.15em] text-ember-400 sm:text-sm sm:tracking-[0.2em]">
-          Delivering happiness, one order at a time
-        </p>
-        <h1 class="mt-3 max-w-2xl font-display text-3xl font-extrabold leading-[1.15] text-white sm:mt-4 sm:text-5xl lg:text-7xl">
-          Great food,<br />
-          delivered <span class="text-ember-400">fast</span> & fresh.
-        </h1>
-        <p class="mt-4 max-w-lg text-sm text-ink-300 sm:mt-5 sm:text-lg">
-          Order from FeastGo's curated local restaurants — real menus, real ratings, real-time tracking.
-        </p>
+      <div class="container-shell relative grid items-center gap-10 py-10 sm:py-14 lg:min-h-[560px] lg:grid-cols-[1.05fr_.95fr] lg:gap-14 lg:py-16">
+        <div class="max-w-2xl">
+          <div class="inline-flex items-center gap-2 rounded-full border border-ember-100 bg-white/80 px-3.5 py-2 text-xs font-bold text-ember-700 shadow-sm sm:text-sm">
+            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-ember-500 text-white">
+              <app-icon name="flame" [size]="13" />
+            </span>
+            Good food, closer than ever
+          </div>
+
+          <h1 class="mt-5 font-display text-[2.6rem] font-extrabold leading-[1.08] tracking-tight text-ink-900 sm:mt-6 sm:text-5xl lg:text-[3.75rem]">
+            Find your next
+            <span class="text-ember-600">favorite meal.</span>
+          </h1>
+          <p class="mt-5 max-w-xl text-base leading-7 text-ink-500 sm:text-lg sm:leading-8">
+            Discover local kitchens, find something delicious, and follow every order right to your door.
+          </p>
+
+          <div class="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <a
+              routerLink="/restaurants"
+              class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-ember-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-ember-500/20 transition hover:-translate-y-0.5 hover:bg-ember-600"
+            >
+              Explore restaurants
+              <app-icon name="chevron_right" [size]="17" />
+            </a>
+            <a
+              href="#food-grid"
+              class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-ink-200 bg-white/80 px-5 py-3 text-sm font-bold text-ink-700 transition hover:border-ember-200 hover:bg-white hover:text-ember-700"
+            >
+              Browse popular dishes
+            </a>
+          </div>
+
+          <div class="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold text-ink-500 sm:text-sm">
+            <span class="inline-flex items-center gap-2">
+              <app-icon name="map-pin" [size]="16" class="text-ember-600" />
+              Local kitchens
+            </span>
+            <span class="inline-flex items-center gap-2">
+              <app-icon name="clock" [size]="16" class="text-ember-600" />
+              Live order updates
+            </span>
+            <span class="inline-flex items-center gap-2">
+              <app-icon name="heart" [size]="16" class="text-ember-600" />
+              Made for your cravings
+            </span>
+          </div>
+        </div>
+
+        <div class="relative mx-auto w-full max-w-[520px] lg:justify-self-end">
+          <div class="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-ember-200/70 via-white/20 to-[#f3dfce] blur-xl sm:-inset-6" aria-hidden="true"></div>
+          @if (todaysSpecials()[0]; as featured) {
+            <button
+              type="button"
+              class="group relative block w-full overflow-hidden rounded-[1.75rem] bg-ink-900 text-left shadow-[var(--shadow-card-hover)] ring-1 ring-black/5"
+              (click)="openFoodDetails(featured)"
+              [disabled]="!featured.isAvailable"
+              [attr.aria-label]="'View ' + featured.name + ' from ' + featured.restaurantName"
+            >
+              <img
+                [src]="featured.image"
+                [alt]="featured.name"
+                class="aspect-[16/10] w-full object-cover object-top transition duration-700 group-hover:scale-105"
+              />
+              <span class="absolute inset-0 bg-gradient-to-t from-ink-900/90 via-ink-900/10 to-ink-900/5"></span>
+              <span class="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-ink-800 shadow-sm backdrop-blur">
+                <app-icon name="flame" [size]="14" class="text-ember-600" />
+                Today's pick
+              </span>
+              <span class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-white sm:p-6">
+                <span class="block min-w-0">
+                  <span class="block truncate text-xs font-semibold text-white/75">{{ featured.restaurantName }}</span>
+                  <span class="mt-1 block truncate font-display text-xl font-extrabold sm:text-2xl">{{ featured.name }}</span>
+                </span>
+                <span class="shrink-0 rounded-xl bg-white/15 px-3 py-2 text-right backdrop-blur-md">
+                  <span class="flex items-center justify-end gap-1 text-sm font-extrabold">
+                    <app-icon name="star" [size]="14" class="text-gold-400" /> {{ formatRating(featured.rating) }}
+                  </span>
+                  <span class="mt-0.5 block text-[11px] font-semibold text-white/75">{{ featured.deliveryTime }} min</span>
+                </span>
+              </span>
+            </button>
+          } @else {
+            <div class="relative overflow-hidden rounded-[1.75rem] bg-ink-900 shadow-[var(--shadow-card-hover)] ring-1 ring-black/5">
+              <img [src]="specialsBackground" alt="" class="aspect-[16/10] w-full object-cover object-top" />
+              <div class="absolute inset-0 bg-gradient-to-t from-ink-900/80 via-transparent to-transparent"></div>
+              <p class="absolute bottom-5 left-5 font-display text-xl font-extrabold text-white sm:bottom-6 sm:left-6 sm:text-2xl">
+                Something delicious is waiting.
+              </p>
+            </div>
+          }
+          <div class="relative mx-auto mt-4 flex max-w-[92%] items-center gap-3 rounded-2xl border border-white/80 bg-white/95 p-3.5 shadow-[var(--shadow-card)] sm:absolute sm:-right-4 sm:-top-5 sm:mx-0 sm:mt-0 sm:max-w-none">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-basil-50 text-basil-600">
+              <app-icon name="truck" [size]="21" />
+            </span>
+            <span>
+              <span class="block text-sm font-bold text-ink-800">From kitchen to doorstep</span>
+              <span class="mt-0.5 block text-xs text-ink-400">Follow your order as it moves</span>
+            </span>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="container-shell-full py-8">
-      <div class="flex items-center justify-between">
-        <h2 class="font-display text-xl font-bold text-ink-900">Explore More</h2>
-        @if (!exploreLoading() && !exploreError()) {
-          <p class="text-sm text-ink-400">{{ exploreCards().length }} ways to discover</p>
+    <section class="container-shell py-12 sm:py-16">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.16em] text-ember-600">Find your next favorite</p>
+          <h2 class="mt-2 font-display text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">What are you craving?</h2>
+        </div>
+        <p class="max-w-md text-sm leading-6 text-ink-400">A quick shortcut to the kind of good you're in the mood for.</p>
+      </div>
+      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+        @for (tile of exploreTiles; track tile.label) {
+          <button
+            type="button"
+            class="group flex min-h-28 items-center gap-3 rounded-2xl border border-ink-100 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-ember-200 hover:shadow-[var(--shadow-card)] sm:min-h-32 sm:flex-col sm:items-start sm:justify-between sm:p-4"
+            (click)="applyExplore(tile)"
+            [attr.aria-label]="'Explore ' + tile.label"
+          >
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ember-50 text-ember-600 transition group-hover:bg-ember-500 group-hover:text-white">
+              <app-icon [name]="tile.icon" [size]="19" />
+            </span>
+            <span class="text-xs font-bold leading-snug text-ink-700 sm:text-sm">{{ tile.label }}</span>
+          </button>
         }
       </div>
+    </section>
 
-      @if (exploreLoading()) {
-        <div class="mt-4 flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-          @for (i of [1, 2, 3, 4, 5]; track i) {
-            <div class="h-44 w-60 shrink-0 animate-pulse rounded-2xl bg-ink-100 sm:w-64"></div>
-          }
+    <section id="food-grid" class="container-shell scroll-mt-24 py-10 sm:py-14">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.16em] text-ember-600">
+            @if (selectedCategory() || activeFilters().size) {
+              Your selection
+            } @else {
+              Picked for you
+            }
+          </p>
+          <h2 class="mt-2 font-display text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">
+            @if (selectedCategory()) {
+              {{ selectedCategory() }}
+            } @else {
+              Made for you
+            }
+          </h2>
         </div>
-      } @else if (exploreError()) {
-        <div class="mt-4 flex flex-col items-center gap-2 rounded-2xl border border-dashed border-ink-200 py-10 text-center text-ink-400">
-          <app-icon name="alert-triangle" [size]="28" />
-          <p class="text-sm font-semibold text-ink-600">Couldn't load Explore More right now</p>
-          <button type="button" class="text-sm font-bold text-ember-600" (click)="loadExploreCards()">Try again</button>
-        </div>
-      } @else if (exploreCards().length === 0) {
-        <p class="mt-4 text-sm text-ink-400">Nothing to explore yet — check back soon.</p>
-      } @else {
-        <div class="mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3 scrollbar-none">
-          @for (card of exploreCards(); track card._id) {
-            <button
-              type="button"
-              class="group relative h-44 w-60 shrink-0 snap-start overflow-hidden rounded-2xl text-left text-white shadow-[var(--shadow-card)] transition duration-300 hover:-translate-y-1.5 hover:shadow-[var(--shadow-card-hover)] sm:w-64"
-              (click)="openExplore(card)"
-            >
-              <span
-                class="absolute inset-0"
-                [style.background]="'linear-gradient(135deg,' + card.gradientFrom + ',' + card.gradientTo + ')'"
-              ></span>
-              @if (card.image) {
-                <img [src]="card.image" [alt]="card.title" loading="lazy" class="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-                <span class="absolute inset-0 bg-gradient-to-t from-ink-900/85 via-ink-900/25 to-transparent"></span>
-              }
-
-              @if (card.badge) {
-                <span class="absolute right-3 top-3 rounded-full bg-white/25 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white backdrop-blur-md ring-1 ring-white/40">
-                  {{ card.badge }}
-                </span>
-              }
-
-              <span class="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-md ring-1 ring-white/30">
-                <app-icon [name]="card.icon" [size]="20" />
-              </span>
-
-              <span class="absolute inset-x-0 bottom-0 p-4">
-                <span class="block text-base font-bold leading-tight">{{ card.title }}</span>
-                @if (card.subtitle) {
-                  <span class="mt-0.5 block truncate text-xs text-white/80">{{ card.subtitle }}</span>
-                }
-              </span>
+        <div class="flex items-center justify-between gap-3 sm:justify-end">
+          <p class="text-sm font-medium text-ink-400">{{ total() }} dishes</p>
+          @if (selectedCategory() || activeFilters().size) {
+            <button type="button" class="rounded-lg px-3 py-2 text-sm font-bold text-ember-700 hover:bg-ember-50" (click)="clearExplore()">
+              Clear filters
             </button>
           }
         </div>
-      }
-    </section>
-
-    <section id="food-grid" class="container-shell-full py-8">
-      <div class="flex items-center justify-between">
-        <h2 class="font-display text-xl font-bold text-ink-900">Made for you</h2>
-        <p class="text-sm text-ink-400">{{ total() }} dishes</p>
       </div>
 
       @if (loading()) {
-        <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div class="mt-6 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-4">
           @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
-            <div class="card-surface h-72 animate-pulse bg-ink-100"></div>
+            <div class="card-surface h-80 animate-pulse bg-ink-100"></div>
           }
         </div>
       } @else if (feedItems().length === 0) {
-        <div class="mt-16 flex flex-col items-center gap-3 text-center text-ink-400">
-          <app-icon name="search" [size]="40" />
-          <p class="text-lg font-semibold text-ink-600">No dishes match your filters</p>
+        <div class="mt-6 flex flex-col items-center rounded-3xl border border-dashed border-ink-200 bg-white px-5 py-14 text-center">
+          <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-ember-50 text-ember-600">
+            <app-icon name="search" [size]="25" />
+          </span>
+          <p class="mt-4 font-display text-lg font-bold text-ink-800">No dishes match this selection</p>
+          <p class="mt-1 max-w-sm text-sm leading-6 text-ink-400">Try another category or clear your filters to see all available dishes.</p>
+          <button type="button" class="mt-5 rounded-xl bg-ember-500 px-4 py-2.5 text-sm font-bold text-white hover:bg-ember-600" (click)="clearExplore()">
+            Show all dishes
+          </button>
         </div>
       } @else {
-        <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div class="mt-6 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-4">
           @for (item of visibleFeedItems(); track item.id) {
             <app-food-card [item]="item" />
           }
@@ -129,47 +228,79 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
       }
     </section>
 
-    <section class="relative overflow-hidden py-16 sm:py-20">
-      <img [src]="specialsBackground" alt="" class="absolute inset-0 h-full w-full object-cover" />
-      <div class="container-shell-full relative">
-        <h2 class="font-display text-2xl font-bold text-white">Today's Specials</h2>
-        <p class="mt-1 text-sm text-white/60">Hand-picked dishes, fresh off the grill.</p>
-        <div class="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
-          @for (item of todaysSpecials(); track item.id) {
-            <div
-              class="cursor-pointer overflow-hidden rounded-2xl border border-white/20 bg-white/10 backdrop-blur-lg transition hover:-translate-y-1"
-              (click)="openFoodDetails(item)"
-            >
-              <div class="relative aspect-square w-full overflow-hidden">
-                <img [src]="item.image" [alt]="item.name" class="h-full w-full object-cover" loading="lazy" />
-                @if (item.offer) {
-                  <div class="absolute left-2 top-2 rounded-full bg-ember-500 px-2.5 py-1 text-xs font-bold text-white">
-                    {{ item.offer }}
-                  </div>
-                }
-              </div>
-              <div class="p-4">
-                <h3 class="truncate text-base font-bold text-white">{{ item.name }}</h3>
-                <p class="mt-0.5 truncate text-xs text-white/60">{{ item.restaurantName }}</p>
-                <div class="mt-3 flex items-center justify-between">
-                  <span class="text-base font-bold text-white">{{ item.price | inr }}</span>
-                  <span class="flex items-center gap-1 text-xs font-semibold text-gold-400">
-                    <app-icon name="star" [size]="12" /> {{ item.rating }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          }
+    <section class="relative isolate overflow-hidden bg-ink-900 py-12 sm:py-16">
+      <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div class="absolute -right-24 -top-32 h-96 w-96 rounded-full bg-ember-500/20 blur-3xl"></div>
+        <div class="absolute -bottom-48 left-1/4 h-96 w-96 rounded-full bg-ember-800/30 blur-3xl"></div>
+      </div>
+      <div class="container-shell relative">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.16em] text-ember-300">Worth a closer look</p>
+            <h2 class="mt-2 font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Today's specials</h2>
+            <p class="mt-2 max-w-lg text-sm leading-6 text-white/65">A few standout dishes from kitchens worth knowing.</p>
+          </div>
+          <a routerLink="/restaurants" class="inline-flex items-center gap-1.5 text-sm font-bold text-white transition hover:text-ember-300">
+            Explore all
+            <app-icon name="chevron_right" [size]="16" />
+          </a>
         </div>
+        @if (todaysSpecials().length) {
+          <div class="mt-7 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-4">
+            @for (item of todaysSpecials(); track item.id) {
+              <button
+                type="button"
+                class="group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] text-left shadow-lg transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/10"
+                (click)="openFoodDetails(item)"
+                [disabled]="!item.isAvailable"
+                [attr.aria-label]="'View ' + item.name + ' from ' + item.restaurantName"
+              >
+                <span class="relative block aspect-[4/3] overflow-hidden bg-ink-800">
+                  <img [src]="item.image" [alt]="item.name" class="h-full w-full object-cover object-top transition duration-500 group-hover:scale-105" loading="lazy" />
+                  @if (item.offer) {
+                    <span class="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-extrabold text-ember-700 shadow-sm">
+                      {{ item.offer }}
+                    </span>
+                  }
+                  <span class="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-ink-900/75 px-2.5 py-1 text-xs font-bold text-white backdrop-blur">
+                    <app-icon name="star" [size]="12" class="text-gold-400" /> {{ formatRating(item.rating) }}
+                  </span>
+                </span>
+                <span class="block p-4">
+                  <span class="block truncate text-base font-bold text-white">{{ item.name }}</span>
+                  <span class="mt-1 block truncate text-xs text-white/55">{{ item.restaurantName }}</span>
+                  <span class="mt-4 flex items-center justify-between gap-3">
+                    <span class="text-base font-extrabold text-white">{{ item.price | inr }}</span>
+                    <span class="inline-flex items-center gap-1 text-xs font-bold text-ember-300">
+                      View dish <app-icon name="chevron_right" [size]="14" />
+                    </span>
+                  </span>
+                </span>
+              </button>
+            }
+          </div>
+        } @else {
+          <div class="mt-7 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-4" aria-label="Loading specials">
+            @for (i of [1, 2, 3, 4]; track i) {
+              <div class="h-72 animate-pulse rounded-2xl bg-white/10"></div>
+            }
+          </div>
+        }
       </div>
     </section>
 
-    <section class="container-shell-full py-8">
-      <div class="flex items-center justify-between">
-        <h2 class="font-display text-xl font-bold text-ink-900">Popular Near You</h2>
-        <a routerLink="/restaurants" class="text-sm font-semibold text-ember-600 hover:text-ember-700">See all →</a>
+    <section class="container-shell py-10 sm:py-14">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-[0.16em] text-ember-600">Loved by local diners</p>
+          <h2 class="mt-2 font-display text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">Popular near you</h2>
+        </div>
+        <a routerLink="/restaurants" class="inline-flex items-center gap-1.5 text-sm font-bold text-ember-700 hover:text-ember-800">
+          See all restaurants
+          <app-icon name="chevron_right" [size]="16" />
+        </a>
       </div>
-      <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div class="mt-6 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-4">
         @for (item of popularNearYou(); track item.id) {
           <app-food-card [item]="item" />
         }
@@ -177,11 +308,17 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
     </section>
 
     @if (recentlyOrdered().length) {
-      <section class="container-shell-full py-8">
-        <h2 class="font-display text-xl font-bold text-ink-900">Recently Ordered</h2>
-        <div class="mt-4 flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+      <section class="container-shell py-8 sm:py-10">
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.16em] text-ember-600">Pick up where you left off</p>
+            <h2 class="mt-2 font-display text-2xl font-extrabold tracking-tight text-ink-900">Recently ordered</h2>
+          </div>
+          <span class="hidden text-xs font-medium text-ink-400 sm:block">Swipe to browse</span>
+        </div>
+        <div class="mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3 scrollbar-none">
           @for (item of recentlyOrdered(); track item.id) {
-            <div class="w-72 shrink-0">
+            <div class="w-[min(18rem,85vw)] shrink-0 snap-start">
               <app-food-card [item]="item" variant="horizontal" />
             </div>
           }
@@ -189,9 +326,12 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
       </section>
     }
 
-    <section class="container-shell-full py-8 pb-16">
-      <h2 class="font-display text-xl font-bold text-ink-900">Recommended For You</h2>
-      <div class="mt-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+    <section class="container-shell py-10 pb-16 sm:py-14">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.16em] text-ember-600">A little more inspiration</p>
+        <h2 class="mt-2 font-display text-2xl font-extrabold tracking-tight text-ink-900 sm:text-3xl">Recommended for you</h2>
+      </div>
+      <div class="mt-6 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-4">
         @for (item of recommended(); track item.id) {
           <app-food-card [item]="item" />
         }
@@ -202,12 +342,11 @@ import { InrPipe } from '../../shared/pipes/inr.pipe';
 export class HomeComponent implements OnInit, AfterViewChecked, OnDestroy {
   @ViewChild('scrollSentinel') scrollSentinel?: ElementRef<HTMLDivElement>;
 
-  specialsBackground = foodCollageBackground(['🍕', '🍔', '🍛', '🍜', '🍰', '☕', '🌯', '🍝']);
+  exploreTiles = EXPLORE_TILES;
+  specialsBackground = '/images/food-real/dishes/margherita-pizza.webp';
 
-  exploreCards = signal<ExploreCard[]>([]);
-  exploreLoading = signal(true);
-  exploreError = signal(false);
-
+  selectedCategory = signal<string | null>(null);
+  activeFilters = signal<Set<FilterKey>>(new Set());
   sort = signal<FoodSort>('popular');
 
   loading = signal(true);
@@ -229,14 +368,11 @@ export class HomeComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   constructor(
     private foodService: FoodService,
-    private exploreCardService: ExploreCardService,
     private productModal: ProductModalService,
-    private scrollRestoration: ScrollRestorationService,
-    private router: Router
+    private scrollRestoration: ScrollRestorationService
   ) {}
 
   async ngOnInit() {
-    this.loadExploreCards();
     await this.fetchFeed();
     this.scrollRestoration.restore();
 
@@ -271,25 +407,21 @@ export class HomeComponent implements OnInit, AfterViewChecked, OnDestroy {
     return this.feedItems().slice(0, this.visibleCount());
   }
 
-  async loadExploreCards() {
-    this.exploreLoading.set(true);
-    this.exploreError.set(false);
-    try {
-      const res = await this.exploreCardService.list();
-      this.exploreCards.set(res.cards);
-    } catch {
-      this.exploreError.set(true);
-    } finally {
-      this.exploreLoading.set(false);
-    }
+  formatRating(rating: number): string {
+    return rating.toFixed(1);
   }
 
-  // Navigates to the card's listing page with its filter combination applied
-  // as query params — e.g. { topRated: true } becomes ?topRated=true, which
-  // FoodListComponent reads on load and applies the same way a manual chip
-  // click would.
-  openExplore(card: ExploreCard) {
-    this.router.navigate([card.route], { queryParams: card.filters as Record<string, unknown> });
+  applyExplore(tile: ExploreTile) {
+    this.selectedCategory.set(tile.category ?? null);
+    this.activeFilters.set(new Set(tile.filters ?? []));
+    this.fetchFeed();
+    document.getElementById('food-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  clearExplore() {
+    this.selectedCategory.set(null);
+    this.activeFilters.set(new Set());
+    this.fetchFeed();
   }
 
   openFoodDetails(item: FoodItem) {
@@ -302,7 +434,19 @@ export class HomeComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   private buildFeedQuery(): FoodQuery {
-    return { sort: this.sort() };
+    const filters = this.activeFilters();
+    return {
+      q: this.selectedCategory() ?? undefined,
+      sort: this.sort(),
+      healthy: filters.has('healthy'),
+      veg: filters.has('pureVeg'),
+      minRating: filters.has('rating4') ? 4.0 : undefined,
+      under199: filters.has('under199'),
+      offers: filters.has('offers'),
+      bestseller: filters.has('bestSeller'),
+      fastDelivery: filters.has('nearFast'),
+      newArrival: filters.has('newArrivals'),
+    };
   }
 
   private async fetchFeed() {

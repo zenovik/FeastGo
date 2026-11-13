@@ -34,6 +34,7 @@ export class NotificationService {
 
   readonly notifications = signal<AppNotification[]>([]);
   readonly unreadCount = signal(0);
+  readonly centerOpen = signal(false);
   readonly loading = signal(false);
   readonly hasMore = signal(false);
   readonly page = signal(1);
@@ -78,6 +79,7 @@ export class NotificationService {
     this.realtime.disconnect();
     this.connected.set(false);
     this.role = null;
+    this.centerOpen.set(false);
     this.notifications.set([]);
     this.unreadCount.set(0);
   }

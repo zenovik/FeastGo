@@ -4,24 +4,22 @@ import { Router, RouterLink } from '@angular/router';
 import { AdminAuthService } from '../../../core/services/admin-auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
-import { authHeroIllustration } from '../../../core/utils/food-image.util';
 
 @Component({
   selector: 'app-admin-forgot-password',
   standalone: true,
   imports: [FormsModule, RouterLink, IconComponent],
   template: `
-    <div class="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
-      <img [src]="backgroundImage" alt="" class="absolute inset-0 -z-10 h-full w-full object-cover" />
-      <div class="container-shell relative flex max-w-md flex-col justify-center py-10">
-        <div class="mb-6 text-center">
-          <span class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-ember-500 text-white">
+    <div class="auth-page auth-page-full relative flex items-center justify-center overflow-hidden px-4">
+      <div class="auth-content flex flex-col justify-center py-10">
+        <div class="auth-intro mb-6 text-center">
+          <span class="auth-mark mx-auto flex items-center justify-center rounded-xl bg-ember-500 text-white">
             <app-icon name="lock" [size]="20" />
           </span>
           <h1 class="mt-3 font-display text-2xl font-bold text-ink-900">Reset your password</h1>
         </div>
 
-        <div class="auth-card space-y-4 p-5">
+        <div class="auth-card space-y-4 p-6">
           @if (error()) {
             <p class="rounded-lg bg-ember-50 px-3 py-2 text-sm font-medium text-ember-700">{{ error() }}</p>
           }
@@ -59,8 +57,6 @@ export class AdminForgotPasswordComponent {
   otpSent = signal(false);
   submitting = signal(false);
   error = signal<string | null>(null);
-  backgroundImage = authHeroIllustration();
-
   constructor(
     private auth: AdminAuthService,
     private toast: ToastService,

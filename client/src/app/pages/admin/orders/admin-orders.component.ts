@@ -328,8 +328,12 @@ export class AdminOrdersComponent implements OnInit {
 
   async assign(order: Order, partnerId: string) {
     if (!partnerId) return;
-    const res = await this.adminService.assignDeliveryPartner(order._id, partnerId);
-    this.orders.update((list) => list.map((o) => (o._id === order._id ? res.order : o)));
-    this.toast.success('Delivery partner assigned');
+    try {
+      const res = await this.adminService.assignDeliveryPartner(order._id, partnerId);
+      this.orders.update((list) => list.map((o) => (o._id === order._id ? res.order : o)));
+      this.toast.success('Delivery partner assigned');
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? 'Could not assign delivery partner');
+    }
   }
 }

@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../config';
 import { DeliveryOrderDetail, Order } from '../models/order.model';
@@ -47,6 +47,9 @@ export interface DeliveryEarningRow {
 
 @Injectable({ providedIn: 'root' })
 export class DeliveryService {
+  private readonly orderChangesSig = signal(0);
+  readonly orderChanges = this.orderChangesSig.asReadonly();
+
   constructor(private http: HttpClient) {}
 
   listAvailableOrders() {
@@ -65,15 +68,24 @@ export class DeliveryService {
   }
 
   acceptOrder(id: string) {
-    return firstValueFrom(this.http.post<{ order: Order }>(`${API_URL}/delivery/orders/${id}/accept`, {}));
+    return firstValueFrom(this.http.post<{ order: Order }>(`${API_URL}/delivery/orders/${id}/accept`, {})).then((result) => {
+      this.orderChangesSig.update((version) => version + 1);
+      return result;
+    });
   }
 
   rejectOrder(id: string, reason: string) {
-    return firstValueFrom(this.http.post<{ order: Order }>(`${API_URL}/delivery/orders/${id}/reject`, { reason }));
+    return firstValueFrom(this.http.post<{ order: Order }>(`${API_URL}/delivery/orders/${id}/reject`, { reason })).then((result) => {
+      this.orderChangesSig.update((version) => version + 1);
+      return result;
+    });
   }
 
   updateDeliveryStatus(id: string, status: string, extra: { otp?: string; proofImage?: string; reason?: string } = {}) {
-    return firstValueFrom(this.http.patch<{ order: Order }>(`${API_URL}/delivery/orders/${id}/status`, { status, ...extra }));
+    return firstValueFrom(this.http.patch<{ order: Order }>(`${API_URL}/delivery/orders/${id}/status`, { status, ...extra })).then((result) => {
+      this.orderChangesSig.update((version) => version + 1);
+      return result;
+    });
   }
 
   updateLocation(lat: number, lng: number) {
