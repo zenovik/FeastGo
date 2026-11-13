@@ -10,29 +10,28 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 import { NotificationBellComponent } from '../../shared/components/notification-bell/notification-bell.component';
 import { NotificationCenterComponent } from '../../shared/components/notification-center/notification-center.component';
 import { SearchBarComponent } from '../../shared/components/search-bar/search-bar.component';
-import { ThemeService } from '../../core/services/theme.service';
 
 @Component({
   selector: 'app-header',
   standalone: true,
   imports: [RouterLink, RouterLinkActive, IconComponent, SearchBarComponent, NotificationBellComponent, NotificationCenterComponent],
   template: `
-    <header class="customer-header sticky top-0 z-50 border-b border-ink-100 bg-white/95 text-ink-800 shadow-sm backdrop-blur-xl dark:border-ink-700 dark:bg-ink-900/90 dark:text-ink-100">
-      <div class="container-shell-full flex min-h-16 flex-wrap items-center gap-x-2 gap-y-2 py-2 lg:h-16 lg:min-h-0 lg:flex-nowrap lg:gap-4 lg:py-0">
-        <a routerLink="/" class="order-1 flex shrink-0 items-center gap-2 lg:order-none">
-          <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-ember-500 text-white shadow-sm shadow-ember-500/20">
+    <header class="sticky top-0 z-50 border-b border-ember-600 bg-ember-500 dark:border-ember-700 dark:bg-ember-600">
+      <div class="container-shell-full flex h-16 items-center gap-2 sm:gap-4">
+        <a routerLink="/" class="flex shrink-0 items-center gap-2">
+          <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white">
             <app-icon name="flame" [size]="18" />
           </span>
-          <span class="font-display text-xl font-extrabold tracking-tight text-ink-900 dark:text-white">FeastGo</span>
+          <span class="font-display text-xl font-extrabold tracking-tight text-white">FeastGo</span>
         </a>
 
-        <div class="relative hidden shrink-0 lg:block" #locationWrapper>
+        <div class="relative hidden shrink-0 sm:block" #locationWrapper>
           <button
             type="button"
-            class="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-semibold text-ink-600 hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-800"
+            class="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-white/90 hover:bg-white/10"
             (click)="locationOpen.set(!locationOpen())"
           >
-            <app-icon name="map-pin" [size]="16" class="text-ember-600" />
+            <app-icon name="map-pin" [size]="16" class="text-white" />
             <span class="max-w-[140px] truncate">{{ location.label() }}</span>
             <app-icon name="chevron_down" [size]="14" />
           </button>
@@ -86,15 +85,15 @@ import { ThemeService } from '../../core/services/theme.service';
           }
         </div>
 
-        <div class="order-3 min-w-0 w-full flex-none lg:order-none lg:max-w-xl lg:flex-1">
+        <div class="min-w-0 max-w-xl flex-1">
           <app-search-bar variant="compact" [showVoice]="true" placeholder="Search restaurants or dishes" />
         </div>
 
-        <nav class="order-2 ml-auto flex items-center gap-1 lg:order-none lg:gap-2">
+        <nav class="ml-auto flex items-center gap-1 sm:gap-2">
           <a
             routerLink="/restaurants"
-            routerLinkActive="bg-ember-50 text-ember-700 dark:bg-ember-500/15 dark:text-ember-300"
-            class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-700 hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-800 lg:block"
+            routerLinkActive="bg-white/20"
+            class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-white/10 sm:block"
           >
             Restaurants
           </a>
@@ -102,29 +101,29 @@ import { ThemeService } from '../../core/services/theme.service';
           @if (auth.isAuthenticated()) {
             <a
               routerLink="/orders"
-              routerLinkActive="bg-ember-50 text-ember-700 dark:bg-ember-500/15 dark:text-ember-300"
-              class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-ink-700 hover:bg-ink-50 dark:text-ink-200 dark:hover:bg-ink-800 lg:block"
+              routerLinkActive="bg-white/20"
+              class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-white hover:bg-white/10 sm:block"
             >
               Orders
             </a>
           }
 
           @if (auth.isAuthenticated()) {
-            <div class="hidden lg:block">
-              <app-notification-bell role="customer" [iconSize]="20" [dark]="theme.dark()" />
+            <div class="hidden sm:block">
+              <app-notification-bell role="customer" [iconSize]="20" [dark]="true" />
             </div>
           }
 
           <button
             type="button"
-            class="relative hidden rounded-lg p-2.5 text-ink-700 hover:bg-ink-50 dark:text-ink-100 dark:hover:bg-ink-800 lg:block"
+            class="relative hidden rounded-lg p-2.5 text-white hover:bg-white/10 sm:block"
             (click)="cart.openDrawer()"
             aria-label="Open cart"
           >
             <app-icon name="cart" [size]="21" />
             @if (cart.itemCount() > 0) {
               <span
-                class="absolute -right-0.5 -top-0.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-ember-500 px-1 text-[10px] font-bold text-white"
+                class="absolute -right-0.5 -top-0.5 flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-ember-600"
               >
                 {{ cart.itemCount() }}
               </span>
@@ -132,10 +131,10 @@ import { ThemeService } from '../../core/services/theme.service';
           </button>
 
           @if (auth.isAuthenticated()) {
-            <div class="relative hidden lg:block" #menuWrapper>
+            <div class="relative hidden sm:block" #menuWrapper>
               <button
                 type="button"
-                class="flex items-center gap-1.5 rounded-lg py-1.5 pl-1.5 pr-2 hover:bg-ink-50 dark:hover:bg-ink-800"
+                class="flex items-center gap-1.5 rounded-lg py-1.5 pl-1.5 pr-2 hover:bg-white/10"
                 (click)="menuOpen.set(!menuOpen())"
                 aria-haspopup="true"
                 [attr.aria-expanded]="menuOpen()"
@@ -143,11 +142,11 @@ import { ThemeService } from '../../core/services/theme.service';
                 @if (auth.currentUser()?.photo; as photo) {
                   <img [src]="photo" class="h-8 w-8 rounded-full object-cover" alt="" />
                 } @else {
-                  <span class="flex h-8 w-8 items-center justify-center rounded-full bg-ember-50 text-xs font-bold text-ember-700 dark:bg-ember-500/20 dark:text-ember-200">
+                  <span class="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-xs font-bold text-white">
                     {{ initials() }}
                   </span>
                 }
-                <app-icon name="chevron_down" [size]="14" class="text-ink-400" />
+                <app-icon name="chevron_down" [size]="14" class="text-white" />
               </button>
 
               @if (menuOpen()) {
@@ -183,33 +182,29 @@ import { ThemeService } from '../../core/services/theme.service';
           } @else {
             <a
               routerLink="/login"
-              class="hidden rounded-xl bg-ember-500 px-4 py-2 text-sm font-bold text-white shadow-sm shadow-ember-500/20 hover:bg-ember-600 lg:block"
+              class="hidden rounded-lg bg-white px-4 py-2 text-sm font-semibold text-ember-600 hover:bg-white/90 sm:block"
             >
               Sign in
             </a>
           }
 
           <!-- Mobile: everything collapses into this single hamburger menu. -->
-          <div class="relative lg:hidden" #mobileNavWrapper>
+          <div class="relative sm:hidden" #mobileNavWrapper>
             <button
               type="button"
-              class="relative rounded-lg p-2 text-ink-700 hover:bg-ink-50 dark:text-ink-100 dark:hover:bg-ink-800"
+              class="relative rounded-lg p-2 text-white hover:bg-white/10"
               (click)="mobileNavOpen.set(!mobileNavOpen())"
               aria-label="Menu"
-              aria-haspopup="true"
-              aria-controls="customer-mobile-menu"
-              [attr.aria-expanded]="mobileNavOpen()"
             >
               <app-icon name="menu" [size]="22" />
               @if (!auth.isAuthenticated() || notif.unreadCount() > 0 || cart.itemCount() > 0) {
-                <span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-ember-500 ring-2 ring-white dark:ring-ink-900"></span>
+                <span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-white"></span>
               }
             </button>
 
             @if (mobileNavOpen()) {
               <div
-                id="customer-mobile-menu"
-                class="fixed inset-x-3 top-28 z-50 max-h-[75vh] overflow-y-auto rounded-xl border border-ink-100 bg-white py-1.5 shadow-[var(--shadow-pop)]"
+                class="fixed inset-x-3 top-16 z-50 max-h-[75vh] overflow-y-auto rounded-xl border border-ink-100 bg-white py-1.5 shadow-[var(--shadow-pop)]"
               >
                 @if (auth.isAuthenticated()) {
                   <div class="border-b border-ink-100 px-4 py-2.5">
@@ -314,7 +309,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
     public cart: CartService,
     public location: LocationService,
     public notif: NotificationService,
-    public theme: ThemeService,
     private router: Router,
     private toast: ToastService
   ) {}

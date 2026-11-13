@@ -431,7 +431,6 @@ export class DeliveryDashboardComponent implements OnInit, OnDestroy {
 
   private locationPollHandle?: ReturnType<typeof setInterval>;
   private ordersRefreshTimer?: ReturnType<typeof setTimeout>;
-  private readonly refreshOrdersOnFocus = () => this.refreshOrders();
 
   targetProgress(): number {
     const e = this.earnings();
@@ -494,7 +493,6 @@ export class DeliveryDashboardComponent implements OnInit, OnDestroy {
 
     this.refreshLocation();
     this.locationPollHandle = setInterval(() => this.refreshLocation(), 30000);
-    window.addEventListener('focus', this.refreshOrdersOnFocus);
 
     // A new assignment (auto or admin-assigned) lands here in real time via
     // the shell's already-open socket. It gets its own top-of-dashboard
@@ -514,8 +512,6 @@ export class DeliveryDashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.locationPollHandle) clearInterval(this.locationPollHandle);
-    if (this.ordersRefreshTimer) clearTimeout(this.ordersRefreshTimer);
-    window.removeEventListener('focus', this.refreshOrdersOnFocus);
   }
 
   dismissAlert(id: string) {
@@ -523,21 +519,17 @@ export class DeliveryDashboardComponent implements OnInit, OnDestroy {
   }
 
   private async refreshOrders() {
-    try {
-      const [availableRes, statsRes, activeRes] = await Promise.all([
-        this.deliveryService.listAvailableOrders(),
-        this.deliveryService.getDashboardStats(),
-        this.deliveryService.listMyOrders(),
-      ]);
-      this.available.set(availableRes.orders);
-      this.stats.set(statsRes);
-      const active = activeRes.orders.find((o) => !['delivered', 'cancelled', 'failed'].includes(o.deliveryStatus));
-      this.activeOrder.set(active ?? null);
-      if (active) this.refreshActiveOrderDetail(active._id);
-      else this.activeOrderDetail.set(null);
-    } catch (err: any) {
-      this.toast.error(err?.error?.message ?? 'Could not refresh delivery orders');
-    }
+    const [availableRes, statsRes, activeRes] = await Promise.all([
+      this.deliveryService.listAvailableOrders(),
+      this.deliveryService.getDashboardStats(),
+      this.deliveryService.listMyOrders(),
+    ]);
+    this.available.set(availableRes.orders);
+    this.stats.set(statsRes);
+    const active = activeRes.orders.find((o) => !['delivered', 'cancelled', 'failed'].includes(o.deliveryStatus));
+    this.activeOrder.set(active ?? null);
+    if (active) this.refreshActiveOrderDetail(active._id);
+    else this.activeOrderDetail.set(null);
   }
 
   private async refreshActiveOrderDetail(orderId: string) {
@@ -586,8 +578,10 @@ export class DeliveryDashboardComponent implements OnInit, OnDestroy {
   async accept(order: Order) {
     try {
       await this.deliveryService.acceptOrder(order._id);
+      this.available.update((orders) => orders.filter((o) => o._id !== order._id));
       this.toast.success('Order accepted — head to pickup');
-      await this.refreshOrders();
+      this.activeOrder.set(order);
+      this.refreshActiveOrderDetail(order._id);
     } catch (err: any) {
       this.toast.error(err?.error?.message ?? 'Could not accept order');
     }

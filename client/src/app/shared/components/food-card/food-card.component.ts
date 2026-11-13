@@ -30,7 +30,6 @@ export type FoodCardVariant = 'grid' | 'full' | 'horizontal';
             <img
               [src]="item.image"
               [alt]="item.name"
-              (error)="onImageError($event)"
               loading="lazy"
               class="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-105"
             />
@@ -83,7 +82,7 @@ export type FoodCardVariant = 'grid' | 'full' | 'horizontal';
 
             <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-500">
               <span class="flex items-center gap-1 font-semibold text-basil-600">
-                <app-icon name="star" [size]="12" /> {{ formatRating(item.rating) }}
+                <app-icon name="star" [size]="12" /> {{ item.rating }}
                 <span class="font-normal text-ink-400">({{ item.reviewCount }})</span>
               </span>
               <span class="flex items-center gap-1">
@@ -135,7 +134,6 @@ export type FoodCardVariant = 'grid' | 'full' | 'horizontal';
             <img
               [src]="item.image"
               [alt]="item.name"
-              (error)="onImageError($event)"
               loading="lazy"
               class="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-105"
             />
@@ -165,7 +163,7 @@ export type FoodCardVariant = 'grid' | 'full' | 'horizontal';
             </a>
             <div class="mt-1 flex items-center gap-2 text-[11px] text-ink-500">
               <span class="flex items-center gap-1 font-semibold text-basil-600">
-                <app-icon name="star" [size]="11" /> {{ formatRating(item.rating) }}
+                <app-icon name="star" [size]="11" /> {{ item.rating }}
               </span>
               <span class="flex items-center gap-1">
                 <app-icon name="clock" [size]="11" /> {{ item.deliveryTime }}m
@@ -217,7 +215,6 @@ export type FoodCardVariant = 'grid' | 'full' | 'horizontal';
             <img
               [src]="item.image"
               [alt]="item.name"
-              (error)="onImageError($event)"
               loading="lazy"
               class="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-105"
             />
@@ -271,7 +268,7 @@ export type FoodCardVariant = 'grid' | 'full' | 'horizontal';
 
             <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-500">
               <span class="flex items-center gap-1 font-semibold text-basil-600">
-                <app-icon name="star" [size]="12" /> {{ formatRating(item.rating) }}
+                <app-icon name="star" [size]="12" /> {{ item.rating }}
               </span>
               <span class="flex items-center gap-1">
                 <app-icon name="clock" [size]="12" /> {{ item.deliveryTime }} mins
@@ -319,7 +316,6 @@ export type FoodCardVariant = 'grid' | 'full' | 'horizontal';
 export class FoodCardComponent {
   @Input({ required: true }) item!: FoodItem;
   @Input() variant: FoodCardVariant = 'grid';
-  private readonly imageFallback = '/images/food-real/dishes/truffle-mushroom-pasta.webp';
 
   constructor(
     private cart: CartService,
@@ -332,16 +328,6 @@ export class FoodCardComponent {
   discountPercent(): number {
     if (!this.item.originalPrice || this.item.originalPrice <= this.item.price) return 0;
     return Math.round((1 - this.item.price / this.item.originalPrice) * 100);
-  }
-
-  formatRating(rating: number): string {
-    return rating.toFixed(1);
-  }
-
-  onImageError(event: Event) {
-    const image = event.target;
-    if (!(image instanceof HTMLImageElement) || image.src === this.imageFallback) return;
-    image.src = this.imageFallback;
   }
 
   qty(): number {

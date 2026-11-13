@@ -121,7 +121,7 @@ function mapsLink(lat: number | null | undefined, lng: number | null | undefined
             @if (o.deliveryStatus === 'out_for_delivery') {
               <button type="button" class="w-full rounded-lg bg-ember-500 py-2.5 text-sm font-bold text-white" (click)="advance('reached_customer')">Reached customer</button>
             }
-            @if (o.deliveryStatus === 'reached_customer') {
+            @if (o.deliveryStatus === 'out_for_delivery' || o.deliveryStatus === 'reached_customer') {
               <div class="rounded-lg border border-dashed border-ink-200 p-3">
                 <p class="text-xs font-semibold text-ink-500">Enter the customer's delivery OTP or scan their QR code — required to confirm delivery</p>
                 <input
@@ -244,11 +244,9 @@ export class DeliveryOrdersComponent implements OnInit, OnDestroy {
   }
 
   private refreshTimer?: ReturnType<typeof setTimeout>;
-  private readonly refreshOrdersOnFocus = () => this.refresh();
 
   async ngOnInit() {
     await this.refresh();
-    window.addEventListener('focus', this.refreshOrdersOnFocus);
     if (!this.messageListenerAttached) {
       this.messageListenerAttached = true;
       this.realtime.on<OrderMessage>('message:new', (m) => {
@@ -272,8 +270,6 @@ export class DeliveryOrdersComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.stopScan();
-    if (this.refreshTimer) clearTimeout(this.refreshTimer);
-    window.removeEventListener('focus', this.refreshOrdersOnFocus);
   }
 
   private async refresh() {
@@ -299,8 +295,6 @@ export class DeliveryOrdersComponent implements OnInit, OnDestroy {
         this.unreadFromCustomer.set(0);
         this.unreadFromSeller.set(0);
       }
-    } catch (err: any) {
-      this.toast.error(err?.error?.message ?? 'Could not refresh deliveries');
     } finally {
       this.loading.set(false);
     }

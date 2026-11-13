@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DeliveryDashboardStats, DeliveryEarningRow, DeliveryEarningsSummary, DeliveryService, DeliveryWeeklyPerformanceDay } from '../../../core/services/delivery.service';
+import { DeliveryDashboardStats, DeliveryEarningsSummary, DeliveryService, DeliveryWeeklyPerformanceDay } from '../../../core/services/delivery.service';
 import { Order } from '../../../core/models/order.model';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { DeliveryShellComponent } from '../../../shared/components/delivery-shell/delivery-shell.component';
@@ -112,10 +112,10 @@ function csvEscape(value: string | number): string {
                 <p class="mt-1 text-xs text-ink-400">#{{ order._id.slice(-6) }} · {{ order.createdAt | date: 'MMM d, y, h:mm a' }}</p>
                 <div class="mt-1 flex items-center justify-between">
                   <p class="text-xs text-ink-400">
-                    Base pay {{ (earningFor(order._id)?.baseFee ?? 0) | inr }}
-                    @if (earningFor(order._id)?.tip) { + tip {{ earningFor(order._id)?.tip | inr }} }
+                    Delivery fee {{ order.deliveryFee | inr }}
+                    @if (order.tip) { + tip {{ order.tip | inr }} }
                   </p>
-                  <p class="text-sm font-bold text-ink-900 dark:text-white">{{ (earningFor(order._id)?.total ?? 0) | inr }}</p>
+                  <p class="text-sm font-bold text-ink-900 dark:text-white">{{ (order.deliveryFee + (order.tip || 0)) | inr }}</p>
                 </div>
               </div>
             } @empty {
@@ -173,7 +173,6 @@ function csvEscape(value: string | number): string {
 })
 export class DeliveryHistoryComponent implements OnInit {
   orders = signal<Order[]>([]);
-  earningRows = signal<DeliveryEarningRow[]>([]);
   earnings = signal<DeliveryEarningsSummary>(EMPTY_EARNINGS);
   stats = signal<DeliveryDashboardStats>(EMPTY_STATS);
   weekly = signal<DeliveryWeeklyPerformanceDay[]>([]);
@@ -196,19 +195,14 @@ export class DeliveryHistoryComponent implements OnInit {
     });
   }
 
-  earningFor(orderId: string): DeliveryEarningRow | undefined {
-    return this.earningRows().find((earning) => earning.order?._id === orderId);
-  }
-
   async ngOnInit() {
-    const [deliveredRes, cancelledRes, failedRes, earningsRes, statsRes, weeklyRes, earningsHistoryRes] = await Promise.all([
+    const [deliveredRes, cancelledRes, failedRes, earningsRes, statsRes, weeklyRes] = await Promise.all([
       this.deliveryService.listMyOrders(undefined, 'delivered'),
       this.deliveryService.listMyOrders(undefined, 'cancelled'),
       this.deliveryService.listMyOrders(undefined, 'failed'),
       this.deliveryService.getEarnings(),
       this.deliveryService.getDashboardStats(),
       this.deliveryService.getWeeklyPerformance(),
-      this.deliveryService.listEarningsHistory(1, 200),
     ]);
     const all = [...deliveredRes.orders, ...cancelledRes.orders, ...failedRes.orders].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -217,7 +211,6 @@ export class DeliveryHistoryComponent implements OnInit {
     this.earnings.set(earningsRes);
     this.stats.set(statsRes);
     this.weekly.set(weeklyRes.days);
-    this.earningRows.set(earningsHistoryRes.earnings);
   }
 
   weeklyBarHeight(total: number): number {
@@ -226,15 +219,15 @@ export class DeliveryHistoryComponent implements OnInit {
 
   exportCsv() {
     const rows = [
-      ['Order ID', 'Restaurant', 'Date', 'Status', 'Base Pay', 'Tip', 'Payout'],
+      ['Order ID', 'Restaurant', 'Date', 'Status', 'Delivery Fee', 'Tip', 'Total'],
       ...this.filteredOrders().map((o) => [
         o._id.slice(-6),
         o.restaurantName,
         new Date(o.createdAt).toLocaleString(),
         o.deliveryStatus,
-        this.earningFor(o._id)?.baseFee ?? 0,
-        this.earningFor(o._id)?.tip ?? 0,
-        this.earningFor(o._id)?.total ?? 0,
+        o.deliveryFee,
+        o.tip || 0,
+        o.deliveryFee + (o.tip || 0),
       ]),
     ];
     const csv = rows.map((row) => row.map(csvEscape).join(',')).join('\n');

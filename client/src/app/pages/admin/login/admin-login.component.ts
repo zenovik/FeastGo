@@ -3,30 +3,32 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AdminAuthService } from '../../../core/services/admin-auth.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { authHeroIllustration } from '../../../core/utils/food-image.util';
 
 @Component({
   selector: 'app-admin-login',
   standalone: true,
   imports: [FormsModule, RouterLink, IconComponent],
   template: `
-    <div class="auth-page auth-page-full relative flex items-center justify-center overflow-hidden px-4">
-      <div class="auth-content flex flex-col justify-center py-10">
-        <div class="auth-intro mb-6 text-center">
-          <span class="auth-mark mx-auto flex items-center justify-center rounded-xl bg-ember-500 text-white">
+    <div class="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      <img [src]="backgroundImage" alt="" class="absolute inset-0 -z-10 h-full w-full object-cover" />
+      <div class="container-shell relative flex max-w-md flex-col justify-center py-10">
+        <div class="mb-6 text-center">
+          <span class="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-ember-500 text-white">
             <app-icon name="shield-check" [size]="20" />
           </span>
           <h1 class="mt-3 font-display text-2xl font-bold text-ink-900">Admin Login</h1>
           <p class="mt-1 text-sm text-ink-400">Manage restaurants, orders and the FeastGo platform.</p>
         </div>
 
-        <div class="auth-card space-y-4 p-6">
+        <div class="auth-card space-y-4 p-5">
           @if (error()) {
             <p class="rounded-lg bg-ember-50 px-3 py-2 text-sm font-medium text-ember-700">{{ error() }}</p>
           }
           <form class="space-y-3" (submit)="onSubmit($event)">
             <input [(ngModel)]="identifier" name="identifier" required placeholder="Email or mobile number" class="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-ember-400" />
             <input type="password" [(ngModel)]="password" name="password" required placeholder="Password" class="w-full rounded-lg border border-ink-200 px-3 py-2.5 text-sm outline-none focus:border-ember-400" />
-            <button type="submit" [disabled]="submitting()" class="w-full rounded-lg bg-ember-500 py-2.5 text-sm font-bold text-white hover:bg-ember-600 disabled:opacity-50">
+            <button type="submit" [disabled]="submitting()" class="w-full rounded-lg bg-ink-900 py-2.5 text-sm font-bold text-white hover:bg-ink-700 disabled:opacity-50">
               {{ submitting() ? 'Signing in…' : 'Sign in' }}
             </button>
           </form>
@@ -43,6 +45,8 @@ export class AdminLoginComponent {
   password = '';
   submitting = signal(false);
   error = signal<string | null>(null);
+  backgroundImage = authHeroIllustration();
+
   constructor(
     private auth: AdminAuthService,
     private router: Router,

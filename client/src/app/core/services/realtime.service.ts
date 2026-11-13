@@ -24,7 +24,6 @@ export class RealtimeService {
   private connectedRole: NotifRole | null = null;
 
   connect(role: NotifRole): Socket | null {
-    if (API_URL.startsWith('/mock-api')) return null;
     // Seller/delivery/admin logins are session-scoped by design (sessionStorage,
     // no "remember me" choice) — a raw localStorage.getItem here would never
     // find their token and the socket would silently never connect, so this

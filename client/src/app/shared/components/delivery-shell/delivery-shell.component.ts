@@ -28,10 +28,10 @@ const NAV_ITEMS: NavItem[] = [
   standalone: true,
   imports: [RouterLink, RouterLinkActive, IconComponent, NotificationBellComponent],
   template: `
-    <div class="portal-shell flex min-h-screen bg-ink-50 text-ink-800 dark:bg-ink-900 dark:text-ink-100" [class.dark]="theme.dark()">
+    <div class="flex min-h-screen bg-ink-50 text-ink-800 dark:bg-ink-900 dark:text-ink-100" [class.dark]="theme.dark()">
       <!-- Sidebar -->
       <aside
-        class="portal-sidebar fixed inset-y-0 left-0 z-40 w-64 shrink-0 overflow-y-auto border-r border-ink-100 bg-white transition-transform dark:border-ink-800 dark:bg-ink-800 lg:static lg:translate-x-0"
+        class="fixed inset-y-0 left-0 z-40 w-64 shrink-0 overflow-y-auto border-r border-ink-100 bg-white transition-transform dark:border-ink-800 dark:bg-ink-800 lg:static lg:translate-x-0"
         [class.-translate-x-full]="!sidebarOpen()"
       >
         <div class="flex h-16 items-center gap-2 border-b border-ink-100 px-5 dark:border-ink-800">
@@ -41,19 +41,19 @@ const NAV_ITEMS: NavItem[] = [
           <span class="font-display text-lg font-extrabold text-ink-900 dark:text-white">Delivery Panel</span>
         </div>
 
-        <nav class="portal-nav space-y-1 p-3">
+        <nav class="space-y-1 p-3">
           @for (item of navItems; track item.path) {
             <a
               [routerLink]="item.path"
-              routerLinkActive="portal-nav-link-active bg-ember-50 text-ember-600 dark:bg-ember-500/10 dark:text-ember-400"
-              class="portal-nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-ink-600 hover:bg-ink-50 dark:text-ink-300 dark:hover:bg-ink-700/50"
+              routerLinkActive="bg-ember-50 text-ember-600 dark:bg-ember-500/10 dark:text-ember-400"
+              class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-ink-600 hover:bg-ink-50 dark:text-ink-300 dark:hover:bg-ink-700/50"
               (click)="sidebarOpen.set(false)"
             >
               <app-icon [name]="item.icon" [size]="18" />
               {{ item.label }}
-              @if (item.label === 'Orders' && activeOrdersCount() > 0) {
+              @if (item.label === 'Orders' && pendingOrdersCount() > 0) {
                 <span class="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-ember-500 px-1.5 text-[11px] font-bold text-white">
-                  {{ activeOrdersCount() > 99 ? '99+' : activeOrdersCount() }}
+                  {{ pendingOrdersCount() > 99 ? '99+' : pendingOrdersCount() }}
                 </span>
               }
             </a>
@@ -79,7 +79,7 @@ const NAV_ITEMS: NavItem[] = [
       <!-- Main column -->
       <div class="flex min-w-0 flex-1 flex-col">
         <!-- Sticky header -->
-        <header class="portal-header sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-ink-100 bg-white/90 px-4 backdrop-blur dark:border-ink-800 dark:bg-ink-800/90 sm:px-6">
+        <header class="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-ink-100 bg-white/90 px-4 backdrop-blur dark:border-ink-800 dark:bg-ink-800/90 sm:px-6">
           <button type="button" class="rounded-lg p-2 text-ink-600 hover:bg-ink-50 dark:text-ink-300 dark:hover:bg-ink-700 lg:hidden" (click)="sidebarOpen.set(true)">
             <app-icon name="menu" [size]="20" />
           </button>
@@ -94,7 +94,7 @@ const NAV_ITEMS: NavItem[] = [
           </div>
         </header>
 
-        <main class="portal-main flex-1 p-4 sm:p-6">
+        <main class="flex-1 p-4 sm:p-6">
           <ng-content />
         </main>
       </div>
@@ -106,12 +106,11 @@ export class DeliveryShellComponent implements OnInit, OnDestroy {
 
   navItems = NAV_ITEMS;
   sidebarOpen = signal(false);
-  activeOrdersCount = signal(0);
+  pendingOrdersCount = signal(0);
 
   private accountPollHandle?: ReturnType<typeof setInterval>;
-  private activeCountPollHandle?: ReturnType<typeof setInterval>;
-  private activeCountRefreshTimer?: ReturnType<typeof setTimeout>;
-  private readonly refreshCountOnFocus = () => this.refreshActiveOrdersCount();
+  private pendingCountPollHandle?: ReturnType<typeof setInterval>;
+  private pendingCountRefreshTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     public auth: DeliveryAuthService,
@@ -125,17 +124,13 @@ export class DeliveryShellComponent implements OnInit, OnDestroy {
       const serverTheme = this.auth.currentUser()?.theme;
       if (serverTheme) this.theme.syncFromServer(serverTheme);
     });
-    effect(() => {
-      if (this.deliveryService.orderChanges() > 0) this.refreshActiveOrdersCount();
-    });
   }
 
   ngOnInit() {
     this.notif.init('delivery');
     if (!this.auth.currentUser()?.isSuspended) {
-      this.refreshActiveOrdersCount();
+      this.refreshPendingOrdersCount();
     }
-    window.addEventListener('focus', this.refreshCountOnFocus);
 
     // Rendered on every delivery page (not just the dashboard), so the
     // "Orders" nav badge needs its own live refresh here rather than relying
@@ -146,10 +141,10 @@ export class DeliveryShellComponent implements OnInit, OnDestroy {
     // badge in that case.
     this.realtime.on<AppNotification>('notification:new', (n) => {
       if (!n.relatedOrder) return;
-      clearTimeout(this.activeCountRefreshTimer);
-      this.activeCountRefreshTimer = setTimeout(() => this.refreshActiveOrdersCount(), 400);
+      clearTimeout(this.pendingCountRefreshTimer);
+      this.pendingCountRefreshTimer = setTimeout(() => this.refreshPendingOrdersCount(), 400);
     });
-    this.activeCountPollHandle = setInterval(() => this.refreshActiveOrdersCount(), 20000);
+    this.pendingCountPollHandle = setInterval(() => this.refreshPendingOrdersCount(), 20000);
 
     // While pending/rejected/suspended, an admin can change that status at
     // any moment from their own session — keep this tab's own account fresh
@@ -166,15 +161,13 @@ export class DeliveryShellComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.accountPollHandle) clearInterval(this.accountPollHandle);
-    if (this.activeCountPollHandle) clearInterval(this.activeCountPollHandle);
-    if (this.activeCountRefreshTimer) clearTimeout(this.activeCountRefreshTimer);
-    window.removeEventListener('focus', this.refreshCountOnFocus);
+    if (this.pendingCountPollHandle) clearInterval(this.pendingCountPollHandle);
   }
 
-  private async refreshActiveOrdersCount() {
+  private async refreshPendingOrdersCount() {
     try {
       const stats = await this.deliveryService.getDashboardStats();
-      this.activeOrdersCount.set(stats.activeDeliveries);
+      this.pendingOrdersCount.set(stats.pendingPickups);
     } catch {
       // silent — the badge just stays at its last known value
     }

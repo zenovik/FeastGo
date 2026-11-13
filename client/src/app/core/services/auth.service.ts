@@ -9,7 +9,7 @@ import { requestWithProgress } from '../../shared/utils/http-progress';
 
 const TOKEN_KEY = 'feastgo_token';
 
-export type AuthMethod = 'phone';
+export type AuthMethod = 'phone' | 'email';
 export type AuthMode = 'login' | 'signup';
 
 interface AuthResponse {

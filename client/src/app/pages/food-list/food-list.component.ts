@@ -4,6 +4,7 @@ import { FoodItem } from '../../core/models/food-item.model';
 import { CategoryService } from '../../core/services/category.service';
 import { FoodPriceRange, FoodQuery, FoodService, FoodSort } from '../../core/services/food.service';
 import { ScrollRestorationService } from '../../core/services/scroll-restoration.service';
+import { foodImage } from '../../core/utils/food-image.util';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { FoodCardComponent } from '../../shared/components/food-card/food-card.component';
 
@@ -54,23 +55,23 @@ interface CategoryTile {
   isAll?: boolean;
 }
 
-const ALL_CATEGORY_TILE: CategoryTile = {
-  name: 'All',
-  image: '/images/food-real/dishes/margherita-pizza.webp',
-  isAll: true,
-};
+const ALL_CATEGORY_TILE: CategoryTile = { name: 'All', image: foodImage('🍽️', '#ff5127', '#7f2010'), isAll: true };
 
-const CATEGORY_FALLBACKS = [
-  '/images/food-real/dishes/double-smash-burger.webp',
-  '/images/food-real/dishes/chocolate-fudge-cake.webp',
-  '/images/food-real/dishes/butter-chicken-bowl.webp',
-  '/images/food-real/dishes/truffle-mushroom-pasta.webp',
-  '/images/food-real/dishes/spicy-tonkotsu-ramen.webp',
-  '/images/food-real/dishes/street-style-chicken-tacos.webp',
-  '/images/food-real/dishes/chilli-garlic-noodles.webp',
-  '/images/food-real/dishes/margherita-pizza.webp',
-  '/images/food-real/dishes/grilled-halloumi-salad.webp',
-  '/images/food-real/dishes/loaded-veggie-burrito.webp',
+// Cycled through for admin-created categories that don't have an uploaded
+// image, so the strip still looks intentional instead of showing a blank tile.
+const CATEGORY_FALLBACKS: { emoji: string; gradient: [string, string] }[] = [
+  { emoji: '🍽️', gradient: ['#f2764f', '#b8321f'] },
+  { emoji: '🍔', gradient: ['#c17a3f', '#5c3a21'] },
+  { emoji: '🍛', gradient: ['#f3722c', '#7a1a1a'] },
+  { emoji: '🥡', gradient: ['#e63946', '#7b1113'] },
+  { emoji: '🧈', gradient: ['#ee9b00', '#9b2226'] },
+  { emoji: '🫓', gradient: ['#e9c46a', '#6a4c1e'] },
+  { emoji: '🥟', gradient: ['#e56b6f', '#6d1a36'] },
+  { emoji: '🥪', gradient: ['#74c69d', '#1b4332'] },
+  { emoji: '🍝', gradient: ['#e07a5f', '#5c1a1b'] },
+  { emoji: '🍨', gradient: ['#ff8fd6', '#8e3b8e'] },
+  { emoji: '☕', gradient: ['#56cfe1', '#12505a'] },
+  { emoji: '🍰', gradient: ['#c2489c', '#8e3b8e'] },
 ];
 
 const FILTER_CHIPS: FilterChip[] = [
@@ -110,213 +111,118 @@ const PRICE_RANGES: { value: FoodPriceRange | ''; label: string }[] = [
   standalone: true,
   imports: [IconComponent, FoodCardComponent],
   template: `
-    <main class="container-shell-full pb-12 pt-5 sm:pb-16 sm:pt-8">
-      <section class="relative isolate overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-[#fff5eb] via-[#fffaf6] to-[#ffe8dc] p-5 shadow-sm sm:rounded-[2rem] sm:p-8 lg:grid lg:grid-cols-[1.15fr_.85fr] lg:items-center lg:gap-8 lg:p-10">
-        <div class="pointer-events-none absolute -right-20 -top-24 -z-10 h-64 w-64 rounded-full bg-ember-200/50 blur-3xl" aria-hidden="true"></div>
-        <div class="relative z-10">
-          <div class="inline-flex items-center gap-2 rounded-full border border-ember-100 bg-white/80 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-ember-700 shadow-sm sm:text-xs">
-            <app-icon name="map-pin" [size]="14" />
-            Local favorites, delivered fresh
-          </div>
-          @if (query()) {
-            <h1 class="mt-4 font-display text-3xl font-extrabold leading-tight tracking-tight text-ink-900 sm:text-4xl">
-              Results for <span class="text-ember-600">"{{ query() }}"</span>
-            </h1>
+    <div class="container-shell-full py-8">
+      @if (categoryTiles().length) {
+        <div class="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+          @for (c of categoryTiles(); track c.name) {
             <button
               type="button"
-              class="mt-3 inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white/80 px-3 py-1.5 text-xs font-bold text-ink-600 transition hover:border-ember-400 hover:text-ember-600"
-              (click)="clearSearch()"
+              class="flex w-20 shrink-0 flex-col items-center gap-2 text-center"
+              (click)="selectTile(c)"
             >
-              <app-icon name="x" [size]="13" /> Clear search
-            </button>
-          } @else {
-            <h1 class="mt-4 max-w-xl font-display text-3xl font-extrabold leading-[1.08] tracking-tight text-ink-900 sm:text-4xl lg:text-[2.75rem]">
-              Discover your next
-              <span class="text-ember-600">favorite bite.</span>
-            </h1>
-            <p class="mt-3 max-w-lg text-sm leading-6 text-ink-600 sm:text-base sm:leading-7">
-              From neighborhood kitchens to beloved classics, find something delicious for every craving.
-            </p>
-          }
-          <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold text-ink-600 sm:text-sm">
-            <span class="inline-flex items-center gap-1.5"><app-icon name="star" [size]="15" class="text-gold-500" /> Top-rated picks</span>
-            <span class="inline-flex items-center gap-1.5"><app-icon name="clock" [size]="15" class="text-ember-600" /> Fast delivery</span>
-          </div>
-        </div>
-
-        <div class="relative mt-6 overflow-hidden rounded-2xl bg-ink-200 shadow-lg sm:rounded-[1.5rem] lg:mt-0">
-          <img
-            src="/images/food-real/restaurants/basil-and-thyme.webp"
-            alt="Freshly prepared meal from Basil & Thyme"
-            class="aspect-[16/9] w-full object-cover sm:aspect-[16/8] lg:aspect-[5/4]"
-            fetchpriority="high"
-          />
-          <div class="absolute inset-0 bg-gradient-to-t from-ink-900/75 via-transparent to-ink-900/10"></div>
-          <div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-white sm:p-5">
-            <div class="min-w-0">
-              <span class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider backdrop-blur sm:text-[11px]">
-                <app-icon name="flame" [size]="12" /> Local favorite
-              </span>
-              <p class="mt-2 truncate font-display text-lg font-extrabold sm:text-xl">Good food, close to home</p>
-            </div>
-            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 backdrop-blur">
-              <app-icon name="chevron_right" [size]="19" />
-            </span>
-          </div>
-        </div>
-      </section>
-
-      @if (categoryTiles().length) {
-        <section class="mt-8 sm:mt-10" aria-labelledby="category-heading">
-          <div class="mb-4 flex items-end justify-between gap-4">
-            <div>
-              <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-ember-600">A little inspiration</p>
-              <h2 id="category-heading" class="mt-1 font-display text-xl font-extrabold tracking-tight text-ink-900 sm:text-2xl">
-                Browse by craving
-              </h2>
-            </div>
-            <span class="hidden text-xs font-medium text-ink-400 sm:inline">Swipe to explore</span>
-          </div>
-          <div class="flex gap-3 overflow-x-auto pb-3 scrollbar-none sm:gap-4">
-            @for (c of categoryTiles(); track c.name) {
-              <button
-                type="button"
-                class="group relative h-28 w-32 shrink-0 overflow-hidden rounded-2xl bg-ink-200 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember-500 sm:h-32 sm:w-40"
-                [attr.aria-pressed]="isTileActive(c)"
-                (click)="selectTile(c)"
+              <span
+                class="h-16 w-16 overflow-hidden rounded-full transition"
+                [class]="isTileActive(c) ? 'ring-3 ring-ember-500 ring-offset-2' : 'ring-1 ring-ink-100'"
               >
-                <img
-                  [src]="c.image"
-                  alt=""
-                  class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                  loading="lazy"
-                />
-                <span class="absolute inset-0 bg-gradient-to-t from-ink-900/80 via-ink-900/10 to-transparent"></span>
-                <span
-                  class="absolute inset-0 rounded-2xl ring-inset transition"
-                  [class.ring-2]="isTileActive(c)"
-                  [class.ring-ember-400]="isTileActive(c)"
-                ></span>
-                <span class="absolute inset-x-0 bottom-0 truncate px-3 pb-3 font-display text-sm font-extrabold text-white sm:text-base">
-                  {{ c.name }}
-                </span>
-              </button>
-            }
-          </div>
-        </section>
+                <img [src]="c.image" alt="" class="h-full w-full object-cover" loading="lazy" />
+              </span>
+              <span class="text-xs font-semibold" [class]="isTileActive(c) ? 'text-ember-600' : 'text-ink-700'">
+                {{ c.name }}
+              </span>
+            </button>
+          }
+        </div>
       }
 
-      <section class="mt-6 rounded-[1.5rem] border border-ink-100 bg-white p-4 shadow-sm sm:mt-8 sm:rounded-[1.75rem] sm:p-5" aria-labelledby="filter-heading">
-        <div class="mb-3 flex items-center gap-2">
-          <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-ember-50 text-ember-600">
-            <app-icon name="sliders" [size]="16" />
-          </span>
-          <div>
-            <h2 id="filter-heading" class="text-sm font-extrabold text-ink-900">Make it your kind of meal</h2>
-            <p class="text-xs text-ink-400">Quick filters for the things you love</p>
-          </div>
+      <h1 class="mt-6 flex flex-wrap items-center gap-2 font-display text-2xl font-bold text-ink-900">
+        @if (query()) {
+          <span>Results for "{{ query() }}"</span>
+          <button
+            type="button"
+            class="flex items-center gap-1 rounded-full border border-ink-200 px-2.5 py-1 text-xs font-semibold text-ink-500 hover:border-ember-400 hover:text-ember-600"
+            (click)="clearSearch()"
+          >
+            <app-icon name="x" [size]="13" /> Clear search
+          </button>
+        } @else {
+          Food Feed
+        }
+      </h1>
+      <p class="mt-1 text-sm text-ink-400">{{ total() }} dish{{ total() === 1 ? '' : 'es' }} found</p>
+
+      <div class="mt-5 flex flex-wrap items-center gap-2">
+        @for (chip of filterChips; track chip.key) {
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold"
+            [class]="active(chip.key) ? 'border-ember-500 bg-ember-50 text-ember-600' : 'border-ink-200 text-ink-600'"
+            (click)="toggleFilter(chip.key)"
+          >
+            @if (chip.icon) {
+              <app-icon [name]="chip.icon" [size]="15" />
+            }
+            {{ chip.label }}
+          </button>
+        }
+
+        <select
+          class="rounded-full border border-ink-200 bg-white px-3.5 py-2 text-sm font-semibold text-ink-600 outline-none focus:border-ember-400"
+          [value]="priceRange()"
+          (change)="onPriceRangeChange($event)"
+        >
+          @for (opt of priceRanges; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+
+        <div class="ml-auto flex items-center gap-2">
+          <label class="text-sm text-ink-500" for="sort">Sort by</label>
+          <select
+            id="sort"
+            class="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-ink-700 outline-none focus:border-ember-400"
+            [value]="sort()"
+            (change)="onSortChange($event)"
+          >
+            @for (opt of sortOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
+            <div class="card-surface h-72 animate-pulse bg-ink-100"></div>
+          }
+        </div>
+      } @else if (items().length === 0) {
+        <div class="mt-16 flex flex-col items-center gap-3 text-center text-ink-400">
+          <app-icon name="search" [size]="40" />
+          <p class="text-lg font-semibold text-ink-600">No dishes match your filters</p>
+          <p class="text-sm">Try a different search term or clear your filters.</p>
+        </div>
+      } @else {
+        <div class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          @for (item of items(); track item.id) {
+            <app-food-card [item]="item" />
+          }
         </div>
 
-        <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-none sm:flex-wrap sm:overflow-visible">
-          @for (chip of filterChips; track chip.key) {
+        @if (items().length < total()) {
+          <div class="mt-6 flex justify-center">
             <button
               type="button"
-              class="flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-bold transition sm:text-sm"
-              [class]="active(chip.key) ? 'border-ember-500 bg-ember-50 text-ember-700 shadow-sm' : 'border-ink-200 bg-white text-ink-600 hover:border-ember-300 hover:bg-ember-50/50'"
-              [attr.aria-pressed]="active(chip.key)"
-              (click)="toggleFilter(chip.key)"
+              [disabled]="loadingMore()"
+              class="rounded-lg border border-ink-200 px-5 py-2.5 text-sm font-semibold text-ink-700 hover:border-ember-400 disabled:opacity-50"
+              (click)="loadMore()"
             >
-              @if (chip.icon) {
-                <app-icon [name]="chip.icon" [size]="14" />
-              }
-              {{ chip.label }}
+              {{ loadingMore() ? 'Loading…' : 'Load more' }}
             </button>
-          }
-        </div>
-
-        <div class="mt-3 flex flex-col gap-3 border-t border-ink-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <label for="price-range" class="flex items-center gap-2 text-xs font-semibold text-ink-500">
-            Price
-            <select
-              id="price-range"
-              class="rounded-xl border border-ink-200 bg-ink-50/60 px-3 py-2 text-xs font-bold text-ink-700 outline-none transition focus:border-ember-400 focus:ring-2 focus:ring-ember-100 sm:text-sm"
-              [value]="priceRange()"
-              (change)="onPriceRangeChange($event)"
-            >
-              @for (opt of priceRanges; track opt.value) {
-                <option [value]="opt.value">{{ opt.label }}</option>
-              }
-            </select>
-          </label>
-
-          <label for="sort" class="flex items-center gap-2 text-xs font-semibold text-ink-500">
-            Sort by
-            <select
-              id="sort"
-              class="min-w-40 rounded-xl border border-ink-200 bg-ink-50/60 px-3 py-2 text-xs font-bold text-ink-700 outline-none transition focus:border-ember-400 focus:ring-2 focus:ring-ember-100 sm:text-sm"
-              [value]="sort()"
-              (change)="onSortChange($event)"
-            >
-              @for (opt of sortOptions; track opt.value) {
-                <option [value]="opt.value">{{ opt.label }}</option>
-              }
-            </select>
-          </label>
-        </div>
-      </section>
-
-      <section class="mt-8 sm:mt-10" aria-labelledby="results-heading">
-        <div class="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-ember-600">Made for your cravings</p>
-            <h2 id="results-heading" class="mt-1 font-display text-xl font-extrabold tracking-tight text-ink-900 sm:text-2xl">
-              {{ query() ? 'Search results' : 'Popular near you' }}
-            </h2>
           </div>
-          <p class="text-xs font-semibold text-ink-400 sm:text-sm" aria-live="polite">
-            {{ total() }} dish{{ total() === 1 ? '' : 'es' }} found
-          </p>
-        </div>
-
-        @if (loading()) {
-          <div class="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
-            @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
-              <div class="card-surface h-72 animate-pulse bg-ink-100"></div>
-            }
-          </div>
-        } @else if (items().length === 0) {
-          <div class="mt-5 flex flex-col items-center rounded-[1.5rem] border border-dashed border-ink-200 bg-white px-5 py-12 text-center shadow-sm">
-            <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-50 text-ink-400">
-              <app-icon name="search" [size]="25" />
-            </span>
-            <p class="mt-4 font-display text-lg font-extrabold text-ink-800">No dishes found this time</p>
-            <p class="mt-1 max-w-sm text-sm leading-6 text-ink-500">Try another search or loosen a filter to discover more local favorites.</p>
-          </div>
-        } @else {
-          <div class="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-4">
-            @for (item of items(); track item.id) {
-              <app-food-card [item]="item" />
-            }
-          </div>
-
-          @if (items().length < total()) {
-            <div class="mt-7 flex justify-center">
-              <button
-                type="button"
-                [disabled]="loadingMore()"
-                class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-ink-200 bg-white px-5 py-2.5 text-sm font-bold text-ink-700 shadow-sm transition hover:border-ember-300 hover:bg-ember-50 hover:text-ember-700 disabled:cursor-wait disabled:opacity-50"
-                (click)="loadMore()"
-              >
-                {{ loadingMore() ? 'Loading…' : 'Load more dishes' }}
-                @if (!loadingMore()) {
-                  <app-icon name="chevron_down" [size]="15" />
-                }
-              </button>
-            </div>
-          }
         }
-      </section>
-    </main>
+      }
+    </div>
   `,
 })
 export class FoodListComponent implements OnInit {
@@ -385,7 +291,7 @@ export class FoodListComponent implements OnInit {
         ALL_CATEGORY_TILE,
         ...categories.map((c, i) => {
           const fallback = CATEGORY_FALLBACKS[i % CATEGORY_FALLBACKS.length];
-          return { name: c.name, image: c.image || fallback };
+          return { name: c.name, image: c.image || foodImage(fallback.emoji, fallback.gradient[0], fallback.gradient[1]) };
         }),
       ]);
     } catch {
